@@ -8,7 +8,7 @@ class IMessageQueue(ABC):
 
     @abstractmethod
     async def read(
-        self, queue_name: str, vt: int = 30, limit: int = 1
+        self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]: ...
 
     @abstractmethod
@@ -16,6 +16,14 @@ class IMessageQueue(ABC):
 
     @abstractmethod
     async def archive(self, queue_name: str, msg_id: int) -> None: ...
+
+    @abstractmethod
+    async def set_vt(self, queue_name: str, msg_id: Any, new_vt_ts: float) -> None: ...
+
+    @abstractmethod
+    async def wait_for_notification(
+        self, queue_name: str, timeout: float
+    ) -> bool | None: ...
 
     @abstractmethod
     async def is_already_processed(self, key: str) -> bool: ...

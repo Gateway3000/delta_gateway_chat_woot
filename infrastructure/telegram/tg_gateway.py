@@ -52,7 +52,9 @@ class TelegramGateway(IGateway):
     async def send_to_telegram(self, bot: Bot, raw_data: dict[str, Any]) -> None:
         await self._transport.send_to_telegram(bot, raw_data)
 
-    async def send_to_user(self, message: str, limiter: Any = None) -> DeliveryResult:
+    async def send_to_user(
+        self, message: dict[str, Any], limiter: Any = None
+    ) -> DeliveryResult:
         return await self._transport.send_to_user(message)
 
     async def process_inbound(

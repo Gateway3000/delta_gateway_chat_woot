@@ -1,5 +1,6 @@
 from typing import Any
 
+import structlog
 from aiogram import Bot
 
 from core.exceptions import ConnectorNotFoundError, WrongUpdateTypeError
@@ -9,6 +10,8 @@ from infrastructure.telegram.tg_adapter import TelegramAdapter
 from infrastructure.telegram.tg_bot_manager import TelegramBotManager
 from infrastructure.telegram.tg_routing import TelegramRouting
 from infrastructure.telegram.tg_transport import TelegramTransport
+
+logger = structlog.get_logger(__name__)
 
 
 class TelegramIOProcessor:
@@ -51,6 +54,8 @@ class TelegramIOProcessor:
         if not await self._is_already_processed(idempotency_key):
             await self._process_queue(self._iqn, idempotency_key, envelope)
             await self._transport.send_to_telegram(bot, raw_data)
+        else:
+            logger.debug("Idempotency key was already processed", channel=channel)
 
     async def process_outbound(
         self, cw_account_id: str, raw_data: dict[str, Any], channel: str
@@ -60,6 +65,8 @@ class TelegramIOProcessor:
 
         if not await self._is_already_processed(idempotency_key):
             await self._process_queue(self._oqn, idempotency_key, envelope)
+        else:
+            logger.debug("Idempotency key was already processed", channel=channel)
 
     def _get_required_bot(self, connector_id: str) -> Bot:
         if bot := self._bot_manager.get_bot_by_connector_id(connector_id):

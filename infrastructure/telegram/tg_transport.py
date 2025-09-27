@@ -26,9 +26,9 @@ class TelegramTransport:
         await self._dp.feed_update(bot, update)
 
     async def send_to_user(
-        self, message: str, limiter: Any = asyncio.sleep
+        self, message: dict[str, Any], limiter: Any = asyncio.sleep
     ) -> DeliveryResult:
-        envelope = Envelope.model_validate_json(message)
+        envelope = Envelope.model_validate(message)
         connector_id = envelope.connector_id
         bot = self._bots.get_bot_by_connector_id(connector_id)
         try:
@@ -41,7 +41,7 @@ class TelegramTransport:
 
         except TelegramAPIError as e:
             retry_after = getattr(e, "retry_after", None)
-            return DeliveryResult(ok=False, retry_after=retry_after, error=str(e))
+            return DeliveryResult(ok=False, retry_after=retry_after, error=repr(e))
 
         except Exception as e:
-            return DeliveryResult(ok=False, error=str(e))
+            return DeliveryResult(ok=False, error=repr(e))
