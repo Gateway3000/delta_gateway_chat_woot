@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     bots_config: list[BotConfig] = []
     secret_token: str | None = None
 
-    mode: str = "TEST"
+    environment: str = "DEVELOPMENT"
+    log_level: str = "INFO"
 
     @property
     def db_url(self) -> str:

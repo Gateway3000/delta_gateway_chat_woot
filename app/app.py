@@ -7,8 +7,10 @@ from app.di import tg_gateway, pgmq, dp
 from app.routes.telegram.handlers.basic_handlers import router as telegram_handler
 from app.routes.telegram.routers.router import router as telegram_router
 from app.utils.asyncio_policy import check_eventloop_policy
+from app.utils.logger import setup_logging
 
 check_eventloop_policy()
+setup_logging()
 
 
 @asynccontextmanager

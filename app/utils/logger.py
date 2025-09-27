@@ -1,76 +1,120 @@
 import logging
-import os
-import sys
+from typing import Any
+
+import structlog
+
+from app.di import settings
+
+RESET = "\x1b[0m"
+COLORS = {
+    "debug": "\x1b[36;1m",
+    "info": "\x1b[32;1m",
+    "warning": "\x1b[33;1m",
+    "error": "\x1b[31;1m",
+    "critical": "\x1b[31;1m",
+    "timestamp": "\x1b[33m",
+    "location": "\x1b[34;1m",
+    "event": "\x1b[33m",
+    "key": "\x1b[36m",
+    "value": "\x1b[33m",
+}
 
 
-class ColoredFormatter(logging.Formatter):
-    COLORS: dict[str, str] = {
-        "DEBUG": "\033[94m",  # blue
-        "INFO": "\033[92m",  # green
-        "WARNING": "\033[93m",  # yellow
-        "ERROR": "\033[31m",  # red
-        "CRITICAL": "\033[95m",  # purple
-    }
-    RESET: str = "\033[0m"
+class CustomConsoleRenderer:
+    """Custom renderer for structlog that formats logs for console output
+    with colors, aligned location, event message, and key-value pairs.
 
-    def format(self, record: logging.LogRecord) -> str:
-        color: str = self.COLORS.get(record.levelname, self.RESET)
-        message: str = super().format(record)
-        return f"{color}{message}{self.RESET}"
+    This renderer is intended for development environments to improve
+    readability of logs in the console. It extracts standard fields
+    (timestamp, log level, module, function, line number) and arranges them
+    in a structured and colorized format.
+    """
+
+    def __call__(
+        self,
+        logger: structlog.BoundLogger,
+        name: str,
+        event_dict: dict[str, Any],
+    ) -> str:
+        ts = event_dict.pop("timestamp", "")
+        level = event_dict.pop("level", "").upper()
+
+        module = event_dict.pop("module", None)
+        func = event_dict.pop("func_name", None)
+        lineno = event_dict.pop("lineno", None)
+
+        # Removing logger from extras
+        event_dict.pop("logger", None)
+
+        location = ""
+        if module:
+            if func and lineno:
+                location = f"[{logger.name}.{func}:{lineno}]"
+            elif func:
+                location = f"[{logger.name}.{func}]"
+            else:
+                location = f"[{logger.name}]"
+
+        event = event_dict.pop("event", "")
+
+        extras_parts = [
+            f"{COLORS['key']}{k}{RESET}={COLORS['value']}{v}{RESET}"
+            for k, v in event_dict.items()
+        ]
+        extras = " ".join(extras_parts)
+
+        return (
+            f"{COLORS['timestamp']}{ts}{RESET} "
+            f"{COLORS.get(level.lower(), '')}{level:^8}{RESET}"
+            f"{COLORS['location']}{location:<60}{RESET} "
+            f"{COLORS['event']}{event:<40}{RESET} "
+            f"{extras}"
+        )
 
 
-class ExactLevelFilter(logging.Filter):
-    def __init__(self, level: int):
-        super().__init__()
-        self.level = level
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.levelno == self.level
-
-
-def setup_logger(
-    name: str | None = None,
-    level: int = logging.DEBUG,
-    log_to_file: bool = False,
-    warning_logfile: str = "logs/warning.log",
-    error_logfile: str = "logs/error.log",
-) -> logging.Logger:
-    lg = logging.getLogger(name)
-    lg.setLevel(level)
-
-    if lg.handlers:
-        return lg
-
-    log_format = "[{asctime}] [{levelname:^8}] [{filename}:{lineno}] {message}"
-    date_format = "%Y-%m-%d %H:%M:%S"
-
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.DEBUG)
-    console_handler.setFormatter(
-        ColoredFormatter(fmt=log_format, style="{", datefmt=date_format)
+def setup_logging() -> None:
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper()), format="%(message)s"
     )
-    lg.addHandler(console_handler)
 
-    if log_to_file:
-        os.makedirs(os.path.dirname(warning_logfile), exist_ok=True)
-        os.makedirs(os.path.dirname(error_logfile), exist_ok=True)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
 
-        warning_handler = logging.FileHandler(warning_logfile, encoding="utf-8")
-        warning_handler.setLevel(logging.WARNING)
-        warning_handler.addFilter(ExactLevelFilter(logging.WARNING))
-        warning_handler.setFormatter(
-            logging.Formatter(fmt=log_format, style="{", datefmt=date_format)
+    if settings.environment == "DEVELOPMENT":
+        structlog.configure(
+            processors=[
+                structlog.stdlib.filter_by_level,
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.PositionalArgumentsFormatter(),
+                structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
+                structlog.processors.StackInfoRenderer(),
+                structlog.processors.format_exc_info,
+                structlog.processors.dict_tracebacks,
+                structlog.processors.CallsiteParameterAdder(
+                    parameters={
+                        structlog.processors.CallsiteParameter.FUNC_NAME,
+                        structlog.processors.CallsiteParameter.LINENO,
+                        structlog.processors.CallsiteParameter.MODULE,
+                    }
+                ),
+                CustomConsoleRenderer(),
+            ],
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            cache_logger_on_first_use=True,
         )
-        lg.addHandler(warning_handler)
-
-        error_handler = logging.FileHandler(error_logfile, encoding="utf-8")
-        error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(
-            logging.Formatter(fmt=log_format, style="{", datefmt=date_format)
+    else:
+        # Prod: JSON logs for Grafana/Loki
+        structlog.configure(
+            processors=[
+                structlog.stdlib.filter_by_level,
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.PositionalArgumentsFormatter(),
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.StackInfoRenderer(),
+                structlog.processors.format_exc_info,
+                structlog.processors.JSONRenderer(),
+            ],
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            cache_logger_on_first_use=True,
         )
-        lg.addHandler(error_handler)
-
-    return lg
-
-
-logger = setup_logger(__name__, log_to_file=True)
