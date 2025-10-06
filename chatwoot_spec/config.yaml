@@ -1,0 +1,7 @@
+projectName: chatwoot_client
+packageName: chatwoot_client
+packageVersion: 1.0.0
+generateSourceCodeOnly: true
+library: asyncio
+hideGenerationTimestamp: true
+poetry1: false
