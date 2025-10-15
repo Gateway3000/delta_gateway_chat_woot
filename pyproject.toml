@@ -1,13 +1,12 @@
 [project]
 name = "ChannelGateway"
-version = "0.1.0"
-description = ""
+version = "1.0.0"
+description = "Channel Gateway for Helpline Platform"
 requires-python = "==3.12.*"
 dependencies = [
     "alembic==1.16.5",
     "asyncpg==0.30.0",
     "fastapi==0.116.1",
-    "sqlalchemy==2.0.43",
     "uvicorn==0.35.0",
     "pydantic-settings==2.10.1",
     "pydantic[email]==2.11.9",
@@ -15,12 +14,12 @@ dependencies = [
     "tenacity==9.1.2",
     "aiolimiter==1.2.0",
     "structlog==25.4.0",
-    "punq==0.7.0",
     "openapi-generator-cli==7.15.0",
     "lazy-imports==1.0.1",
     "python-dateutil==2.9.0.post0",
     "urllib3==2.5.0",
     "aiohttp-retry==2.9.1",
+    "gunicorn==23.0.0",
 ]
 
 [dependency-groups]
