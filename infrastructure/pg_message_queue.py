@@ -6,23 +6,85 @@ import asyncpg
 import structlog
 from asyncpg import Connection
 
+from app.config import Settings
 from core.interfaces.message_queue import IMessageQueue
 
-logger = structlog.get_logger()
+logger = structlog.get_logger(__name__)
 
 
 class PGMessageQueue(IMessageQueue):
-    def __init__(self, pg_dsn: str):
-        self._pg_dsn = pg_dsn
+    def __init__(self, settings: Settings):
+        self.settings = settings
+        self._pg_dsn = self.settings.db_url
         self._pg_pool: asyncpg.pool.Pool | None = None
+        self._pool_init_event = asyncio.Event()
 
     async def get_pg_pool(self) -> asyncpg.pool.Pool:
+        min_size = 2
+        max_size = 4
         if self._pg_pool is None:
-            logger.debug("Creating new PG pool")
-            self._pg_pool = await asyncpg.create_pool(
-                dsn=self._pg_dsn, min_size=1, max_size=5
-            )
+            current_task = asyncio.current_task()
+            if current_task and current_task.get_name() == "incoming_worker":
+                # The first worker starts initializing the pool
+                await self.ensure_db_exists()
+                self._pg_pool = await asyncpg.create_pool(
+                    dsn=self._pg_dsn, min_size=min_size, max_size=max_size
+                )
+                self._pool_init_event.set()  # Signal that the pool is ready
+                logger.debug(
+                    "Pool has been created", min_size=min_size, max_size=max_size
+                )
+                await self.ensure_extension_and_tables()
+            else:
+                # Second and other workers wait for the event before using the pool
+                await self._pool_init_event.wait()
+
+        logger.debug(
+            "Pool already exists, reusing...", min_size=min_size, max_size=max_size
+        )
         return self._pg_pool
+
+    async def ensure_db_exists(self) -> None:
+        """Creates the database if it does not exist"""
+
+        server_conn = await asyncpg.connect(
+            dsn=self._pg_dsn.rsplit("/", maxsplit=1)[0] + "/postgres"
+        )
+
+        query = f"CREATE DATABASE {self.settings.db_name};"
+
+        try:
+            await server_conn.execute(query)
+            logger.debug(f"Database '{self.settings.db_name}' created.")
+        except asyncpg.exceptions.DuplicateDatabaseError:
+            logger.debug(f"Database '{self.settings.db_name}' already exists.")
+        finally:
+            await server_conn.close()
+
+    async def ensure_extension_and_tables(self) -> None:
+        pool = await self.get_pg_pool()
+
+        async with pool.acquire() as conn:
+            # Create the pgmq extension if it doesn't exist
+            await conn.execute("CREATE EXTENSION IF NOT EXISTS pgmq;")
+
+            # Create the processed_keys table if it doesn't exist
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS processed_keys (
+                    key TEXT PRIMARY KEY,
+                    processed_at TIMESTAMPTZ DEFAULT NOW()
+                );
+            """)
+
+            # Create queues if they don't exist
+            await conn.execute("SELECT pgmq.create('to_cw');")
+            await conn.execute("SELECT pgmq.create('from_cw');")
+
+            # Enable insert notifications
+            await conn.execute("SELECT pgmq.enable_notify_insert('to_cw');")
+            await conn.execute("SELECT pgmq.enable_notify_insert('from_cw');")
+
+            logger.info("Tables and extensions ensured.")
 
     async def send(self, queue_name: str, payload: str) -> None:
         """
@@ -53,7 +115,6 @@ class PGMessageQueue(IMessageQueue):
         """
         Deletes processed messages from the queue.
         """
-        logger.debug("Deleting message", queue=queue_name, msg_id=msg_id)
         pool = await self.get_pg_pool()
         query = "SELECT pgmq.delete($1::text, $2::bigint)"
         async with pool.acquire() as conn:

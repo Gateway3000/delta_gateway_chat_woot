@@ -22,7 +22,7 @@ tg_webhooks = TelegramWebhookManager(
 )
 tg_transport = TelegramTransport(tg_bot_manager, dp)
 tg_adapter = TelegramAdapter()
-pgmq = PGMessageQueue(settings.db_url)
+pgmq = PGMessageQueue(settings)
 tg_processor = TelegramIOProcessor(
     tg_bot_manager,
     tg_routing,

@@ -16,10 +16,12 @@ async def serve_api() -> None:
 
 async def main() -> None:
     task_api = asyncio.create_task(serve_api())
-    task_incoming_worker = asyncio.create_task(incoming_worker.run())
+    task_incoming_worker = asyncio.create_task(
+        incoming_worker.run(), name="incoming_worker"
+    )
     task_outgoing_worker = asyncio.create_task(outgoing_worker.run())
     await asyncio.gather(task_api, task_incoming_worker, task_outgoing_worker)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(), debug=True)
