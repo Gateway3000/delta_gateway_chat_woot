@@ -30,3 +30,26 @@ class DeliveryResult(BaseModel):
     external_id: str | None = None  # Message ID in the channel
     retry_after: float | None = None  # Delay before retrying (in seconds)
     error: str | None = None  # Description of the error, if any
+
+
+class ContactInfo(BaseModel):
+    """Flattened Chatwoot contact response."""
+
+    contact_id: int
+    email: str | None
+    name: str
+    phone_number: str | None
+    identifier: str | None
+    source_id: str
+    inbox_id: int
+
+
+class ContactSearchResult(BaseModel):
+    """Flattened search result for a Chatwoot contact."""
+
+    contact_id: int
+    name: str
+    email: str | None
+    phone_number: str | None
+    source_id: str
+    inbox_id: int
