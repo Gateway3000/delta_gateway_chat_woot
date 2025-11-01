@@ -4,7 +4,6 @@ version = "1.0.0"
 description = "Channel Gateway for Helpline Platform"
 requires-python = "==3.12.*"
 dependencies = [
-    "alembic==1.16.5",
     "asyncpg==0.30.0",
     "fastapi==0.116.1",
     "uvicorn==0.35.0",
@@ -19,7 +18,6 @@ dependencies = [
     "python-dateutil==2.9.0.post0",
     "urllib3==2.5.0",
     "aiohttp-retry==2.9.1",
-    "gunicorn==23.0.0",
 ]
 
 [dependency-groups]
