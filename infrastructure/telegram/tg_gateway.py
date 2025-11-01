@@ -40,11 +40,8 @@ class TelegramGateway(IGateway):
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
         return self._routing.get_route_by_connector_id(connector_id)
 
-    def get_route_by_cw_account_id(self, cw_account_id: str) -> dict[str, str]:
-        return self._routing.get_route_by_cw_account_id(cw_account_id)
-
-    def get_connector_id(self, cw_account_id: str) -> str:
-        return self._routing.get_connector_id(cw_account_id)
+    def get_route_by_inbox_id(self, inbox_id: str) -> dict[str, str]:
+        return self._routing.get_route_by_inbox_id(inbox_id)
 
     async def set_webhooks(self) -> None:
         await self._wh_manager.set_wh()
@@ -62,7 +59,5 @@ class TelegramGateway(IGateway):
     ) -> None:
         await self._io_processor.process_inbound(connector_id, raw_data, self.channel)
 
-    async def process_outbound(
-        self, cw_account_id: str, raw_data: dict[str, Any]
-    ) -> None:
-        await self._io_processor.process_outbound(cw_account_id, raw_data, self.channel)
+    async def process_outbound(self, raw_data: dict[str, Any]) -> None:
+        await self._io_processor.process_outbound(raw_data)

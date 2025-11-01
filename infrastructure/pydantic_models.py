@@ -10,9 +10,11 @@ class Envelope(BaseModel):
     enabling consistent processing and routing within the system.
     """
 
-    id: str  # Unique message ID
+    idempotency_key: str  # Unique idempotency key
     channel: str  # Channel type: "telegram", "telephony", etc.
     connector_id: str  # Connector ID
+    inbox_id: str = ""  # Chatwoot inbox ID
+    message_id: str = ""  # Unique message ID
     cw_account_id: str  # Chatwoot account ID
     sender: Mapping[str, Any]  # Information about the sender
     payload: Mapping[str, Any]  # Message content

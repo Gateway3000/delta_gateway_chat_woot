@@ -9,6 +9,7 @@ class BotConfig(BaseModel):
     connector_id: str
     bot_token: str
     cw_account_id: str
+    cw_inbox_id: str
 
 
 class Settings(BaseSettings):
@@ -25,14 +26,16 @@ class Settings(BaseSettings):
 
     group: str = ""
 
-    secret_key: str | None = None
-    algorithm: str | None = None
-
     bots_config: list[BotConfig] = []
     secret_token: str | None = None
 
+    chatwoot_access_token: str = ""
+
     environment: str = "DEVELOPMENT"
     log_level: str = "INFO"
+
+    dev_base_url: str = ""
+    prod_base_url: str = ""
 
     @property
     def db_url(self) -> str:
@@ -40,3 +43,9 @@ class Settings(BaseSettings):
             f"postgresql://{self.db_user}:{self.db_pass}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+    @property
+    def base_cw_url(self) -> str:
+        if self.environment == "DEVELOPMENT":
+            return self.dev_base_url
+        return self.prod_base_url

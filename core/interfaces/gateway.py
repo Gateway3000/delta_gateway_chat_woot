@@ -19,12 +19,8 @@ class IGateway(ABC):
         """Retrieves the route information associated with a given connector ID."""
 
     @abstractmethod
-    def get_route_by_cw_account_id(self, cw_account_id: str) -> dict[str, str]:
-        """Retrieves the route information associated with a given Chatwoot account ID."""
-
-    @abstractmethod
-    def get_connector_id(self, cw_account_id: str) -> str:
-        """Returns the connector ID corresponding to a Chatwoot account ID."""
+    def get_route_by_inbox_id(self, inbox_id: str) -> dict[str, str]:
+        """Retrieves the route information associated with a given Chatwoot inbox ID."""
 
     @abstractmethod
     async def send_to_user(
@@ -39,7 +35,5 @@ class IGateway(ABC):
         """Processes an inbound message received from an external channel."""
 
     @abstractmethod
-    async def process_outbound(
-        self, cw_account_id: str, raw_data: dict[str, Any]
-    ) -> None:
+    async def process_outbound(self, raw_data: dict[str, Any]) -> None:
         """Processes an outbound message originating from Chatwoot."""

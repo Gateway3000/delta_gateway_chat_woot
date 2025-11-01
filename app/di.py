@@ -3,6 +3,7 @@ from aiogram import Dispatcher
 from app.config import Settings
 from app.workers.incoming import IncomingWorker
 from app.workers.outgoing import OutgoingWorker
+from infrastructure.chatwoot_client.cw_client import ChatwootClient
 from infrastructure.pg_message_queue import PGMessageQueue
 from infrastructure.registry import GatewayRegistry
 from infrastructure.telegram.tg_adapter import TelegramAdapter
@@ -14,7 +15,9 @@ from infrastructure.telegram.tg_transport import TelegramTransport
 from infrastructure.telegram.tg_wh_manager import TelegramWebhookManager
 
 settings = Settings()
+
 dp = Dispatcher()
+
 tg_bot_manager = TelegramBotManager(settings.bots_config)
 tg_routing = TelegramRouting(settings.bots_config)
 tg_webhooks = TelegramWebhookManager(
@@ -39,5 +42,7 @@ tg_gateway = TelegramGateway(
 gateways = GatewayRegistry()
 gateways.register_gateway(tg_gateway)
 
-incoming_worker = IncomingWorker(pgmq, settings.incoming_queue_name)
-outgoing_worker = OutgoingWorker(pgmq, settings.outgoing_queue_name)
+cwc = ChatwootClient(settings.chatwoot_access_token, settings.base_cw_url)
+
+incoming_worker = IncomingWorker(pgmq, cwc, settings.incoming_queue_name, gateways)
+outgoing_worker = OutgoingWorker(pgmq, settings.outgoing_queue_name, gateways)

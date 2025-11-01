@@ -57,16 +57,18 @@ class TelegramIOProcessor:
         else:
             logger.debug("Idempotency key was already processed", channel=channel)
 
-    async def process_outbound(
-        self, cw_account_id: str, raw_data: dict[str, Any], channel: str
-    ) -> None:
-        route = self._routing.get_route_by_cw_account_id(cw_account_id)
-        envelope, idempotency_key = self._build_envelope(raw_data, route, channel)
+    async def process_outbound(self, raw_data: dict[str, Any]) -> None:
+        route = self._routing.get_route_by_inbox_id(raw_data["inbox_id"])
+        envelope, idempotency_key = self._build_envelope(
+            raw_data, route, raw_data["channel"]
+        )
 
         if not await self._is_already_processed(idempotency_key):
             await self._process_queue(self._oqn, idempotency_key, envelope)
         else:
-            logger.debug("Idempotency key was already processed", channel=channel)
+            logger.debug(
+                "Idempotency key was already processed", channel=raw_data["channel"]
+            )
 
     def _get_required_bot(self, connector_id: str) -> Bot:
         if bot := self._bot_manager.get_bot_by_connector_id(connector_id):

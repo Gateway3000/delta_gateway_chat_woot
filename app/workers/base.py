@@ -1,6 +1,5 @@
 import asyncio
 import json
-import random
 from typing import Any
 
 import structlog
@@ -8,7 +7,7 @@ import structlog
 from core.exceptions import TransientError, FatalError
 from core.interfaces.message_queue import IMessageQueue
 
-logger = structlog.get_logger()
+logger = structlog.get_logger(__name__)
 
 
 class BaseWorker:
@@ -20,7 +19,6 @@ class BaseWorker:
         read_timeout: float = 10,
         wait_timeout: float = 300,
         message_limit: int = 1,
-        max_retries: int = 5,
     ):
         self._mq = mq
         self._queue_name = queue_name
@@ -28,26 +26,10 @@ class BaseWorker:
         self._read_to = read_timeout
         self._wait_to = wait_timeout
         self._message_limit = message_limit
-        self._max_retries = max_retries
 
         self._sem = asyncio.Semaphore(message_limit)
         self._stopping = asyncio.Event()
         self._tasks: set[asyncio.Task[None]] = set()
-
-    @staticmethod
-    def exponential_backoff(
-        base: float = 0.5,
-        factor: float = 2.0,
-        max_backoff: float = 300.0,
-        jitter: float = 0.1,
-        attempt: int = 0,
-    ) -> float:
-        """Returns the backoff time in seconds with jitter applied."""
-        backoff = base * (factor**attempt)
-        backoff = min(backoff, max_backoff)
-        jitter_amount = backoff * jitter
-        logger.debug("Backoff is set", backoff=backoff, attempt=attempt)
-        return max(0.0, backoff + random.uniform(-jitter_amount, jitter_amount))
 
     async def stop(self) -> None:
         """Request the worker to stop and wait for all tasks to complete."""

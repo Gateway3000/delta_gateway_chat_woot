@@ -87,10 +87,8 @@ class PGMessageQueue(IMessageQueue):
             logger.info("Tables and extensions ensured.")
 
     async def send(self, queue_name: str, payload: str) -> None:
-        """
-        Sends a message to the PG queue.
-        """
-        logger.debug("Sending message", queue=queue_name, payload=payload)
+        """Sends a message to the PG queue."""
+
         pool = await self.get_pg_pool()
         query = "SELECT pgmq.send($1, $2::jsonb)"
         async with pool.acquire() as conn:
@@ -100,9 +98,8 @@ class PGMessageQueue(IMessageQueue):
     async def read(
         self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]:
-        """
-        Reads messages from the queue and makes them invisible for `vt` seconds.
-        """
+        """Reads messages from the queue and makes them invisible for `vt` seconds."""
+
         pool = await self.get_pg_pool()
         query = "SELECT * FROM pgmq.read($1::text, $2::int, $3::int)"
         async with pool.acquire() as conn:
@@ -112,9 +109,8 @@ class PGMessageQueue(IMessageQueue):
         return messages
 
     async def delete(self, queue_name: str, msg_id: int) -> None:
-        """
-        Deletes processed messages from the queue.
-        """
+        """Deletes processed messages from the queue."""
+
         pool = await self.get_pg_pool()
         query = "SELECT pgmq.delete($1::text, $2::bigint)"
         async with pool.acquire() as conn:
@@ -122,9 +118,8 @@ class PGMessageQueue(IMessageQueue):
         logger.debug("Message deleted", queue=queue_name, msg_id=msg_id)
 
     async def archive(self, queue_name: str, msg_id: int) -> None:
-        """
-        Archives a message from the queue.
-        """
+        """Archives a message from the queue."""
+
         logger.debug("Archiving message", queue=queue_name, msg_id=msg_id)
         pool = await self.get_pg_pool()
         query = "SELECT pgmq.archive($1::text, $2::bigint)"
@@ -133,9 +128,7 @@ class PGMessageQueue(IMessageQueue):
         logger.debug("Message archived", queue=queue_name, msg_id=msg_id)
 
     async def set_vt(self, queue_name: str, msg_id: Any, delay_seconds: float) -> None:
-        """
-        Updates the visibility timeout (VT) of a message.
-        """
+        """Updates the visibility timeout (VT) of a message."""
 
         if delay_seconds <= 0:
             delay_seconds = 1
@@ -158,13 +151,13 @@ class PGMessageQueue(IMessageQueue):
     async def wait_for_notification(
         self, queue_name: str, timeout: float
     ) -> bool | None:
-        """
-        Waits for a notification on a PostgreSQL queue channel within a given timeout.
+        """Waits for a notification on a PostgreSQL queue channel within a given timeout.
 
         Registers a listener on the channel `pgmq.q_<queue_name>.INSERT` and waits
         for a notification. If a notification is received within the timeout, returns True.
         If the timeout expires without receiving a notification, returns False.
         """
+
         pool = await self.get_pg_pool()
         async with pool.acquire() as conn:
             channel_name = f"pgmq.q_{queue_name}.INSERT"
