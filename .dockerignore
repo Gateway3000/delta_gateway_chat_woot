@@ -1,0 +1,12 @@
+**
+
+!app/
+!chatwoot_client/
+!chatwoot_spec/
+!core/
+!infrastructure/
+!Makefile
+!pyproject.toml
+!setup.cfg
+!uv.lock
+!main.py

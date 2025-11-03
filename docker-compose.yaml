@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    container_name: db-gateway
+    build:
+      context: .
+      dockerfile: build/pgmq/Dockerfile
+    networks:
+      - gateway-network
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "8901:5432"
+    volumes:
+      - pgmq:/var/lib/postgresql/data
+
+  app:
+    container_name: gateway
+    build:
+      context: .
+      dockerfile: build/app/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    networks:
+      - gateway-network
+    restart: unless-stopped
+
+networks:
+  gateway-network:
+    driver: bridge
+    name: gateway-network
+
+volumes:
+  pgmq:
