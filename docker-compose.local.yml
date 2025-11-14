@@ -1,0 +1,17 @@
+networks:
+  gateway-network:
+    driver: bridge
+    name: gateway-network
+
+services:
+  db:
+    ports:
+      - "8901:5432"
+    networks:
+      - gateway-network
+
+  app:
+    ports:
+      - "8000:8000"
+    networks:
+      - gateway-network

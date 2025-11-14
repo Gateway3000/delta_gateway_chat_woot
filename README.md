@@ -2,18 +2,29 @@
 
 ## 1. Running the Project
 
+```bash
+cp .env.example .env
+```
+
 ### Running in Docker
+
+Build the project:
+
+```bash
+docker buildx bake -f docker-bake.hcl
+```
 
 To start the project using Docker, run:
 
 ```bash
-docker-compose up --build
+echo COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml >> .env
+docker compose up
 ```
 
 To run in detached (background) mode:
 
 ```bash
-docker-compose up --build -d
+docker compose up -d
 ```
 
 > **Note**: When running in Docker, the application is built **without** test dependencies and some development modules.
@@ -345,6 +356,3 @@ ssh -N -i <путь до SSH-ключа> -R 8000:0.0.0.0:8000 <login>@<server ip
 3. **Именование модулей с тестами**: модули с тестами следует называть с постфиксом `test` (например, `client_test`, а
    не `test_client`). Это нужно для того, чтобы проходила проверка на корректность имён файлов в pre-commit. При этом
    сами тесты должны начинаться с префикса `test_` (например, `test_webhook`).
-
-
-

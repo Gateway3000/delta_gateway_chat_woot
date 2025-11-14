@@ -1,0 +1,27 @@
+volumes:
+  pgmq:
+
+services:
+  app:
+    image: channel-gateway:latest
+    container_name: gateway
+    depends_on:
+      - db
+    env_file: .env
+    restart: unless-stopped
+
+  db:
+    image: postgres-pgmq:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgmq:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} || exit 1"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
