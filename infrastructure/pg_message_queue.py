@@ -17,30 +17,31 @@ class PGMessageQueue(IMessageQueue):
         self.settings = settings
         self._pg_dsn = self.settings.db_url
         self._pg_pool: asyncpg.pool.Pool | None = None
-        self._pool_init_event = asyncio.Event()
+        self._pool_init_lock = asyncio.Lock()
 
+    # noinspection PyUnresolvedReferences
     async def get_pg_pool(self) -> asyncpg.pool.Pool:
         min_size = 2
         max_size = 4
-        if self._pg_pool is None:
-            current_task = asyncio.current_task()
-            if current_task and current_task.get_name() == "incoming_worker":
-                # The first worker starts initializing the pool
-                await self.ensure_db_exists()
-                self._pg_pool = await asyncpg.create_pool(
-                    dsn=self._pg_dsn, min_size=min_size, max_size=max_size
-                )
-                self._pool_init_event.set()  # Signal that the pool is ready
-                logger.debug(
-                    "Pool has been created", min_size=min_size, max_size=max_size
-                )
-                await self.ensure_extension_and_tables()
-            else:
-                # Second and other workers wait for the event before using the pool
-                await self._pool_init_event.wait()
 
+        if self._pg_pool is None:
+            async with self._pool_init_lock:
+                if self._pg_pool is None:
+                    await self.ensure_db_exists()
+                    self._pg_pool = await asyncpg.create_pool(
+                        dsn=self._pg_dsn, min_size=min_size, max_size=max_size
+                    )
+                    logger.debug(
+                        "Pool has been created", min_size=min_size, max_size=max_size
+                    )
+                    await self.ensure_extension_and_tables()
+
+        task = asyncio.current_task()
         logger.debug(
-            "Pool already exists, reusing...", min_size=min_size, max_size=max_size
+            "Pool already exists, reusing...",
+            min_size=min_size,
+            max_size=max_size,
+            task_name=task.get_name() if task else None,
         )
         return self._pg_pool
 

@@ -19,7 +19,9 @@ async def main() -> None:
     task_incoming_worker = asyncio.create_task(
         incoming_worker.run(), name="incoming_worker"
     )
-    task_outgoing_worker = asyncio.create_task(outgoing_worker.run())
+    task_outgoing_worker = asyncio.create_task(
+        outgoing_worker.run(), name="outgoing_worker"
+    )
     await asyncio.gather(task_api, task_incoming_worker, task_outgoing_worker)
 
 
