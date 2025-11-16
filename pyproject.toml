@@ -30,10 +30,14 @@ dev = [
     "pytest-dotenv>=0.5.2",
     "pre-commit>=4.3.0",
     "mypy==1.18.1",
+    "httpx==0.28.1"
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ras"
 env_files = [".test.env"]
+log_cli = true
+log_cli_format = "%(message)s"
+log_cli_level = "DEBUG"
