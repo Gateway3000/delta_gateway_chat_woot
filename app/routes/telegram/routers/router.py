@@ -7,7 +7,11 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.di import tg_gateway
-from core.exceptions import ConnectorNotFoundError, WrongUpdateTypeError
+from core.exceptions import (
+    ConnectorNotFoundError,
+    WrongUpdateTypeError,
+    IdempotencyKeyAlreadyProcessedError,
+)
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -44,6 +48,11 @@ async def telegram_webhook(connector_id: str, request: Request) -> Response:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail="Wrong update type"
         ) from e
+    except IdempotencyKeyAlreadyProcessedError as e:
+        logger.info(
+            "IdempotencyKeyAlreadyProcessedError", error=repr(e), raw_data=raw_data
+        )
+        return Response(status_code=status.HTTP_200_OK)
     logger.debug("Inbound webhook processed successfully")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -65,7 +74,12 @@ async def chatwoot_webhook(cw_account_id: str, request: Request) -> Response:
             text=raw_data.get("content"),
             ts=float(datetime.now().timestamp()),
         )
-
-        await tg_gateway.process_outbound(payload.model_dump(by_alias=True))
+        try:
+            await tg_gateway.process_outbound(payload.model_dump(by_alias=True))
+        except IdempotencyKeyAlreadyProcessedError as e:
+            logger.info(
+                "IdempotencyKeyAlreadyProcessedError", error=repr(e), raw_data=raw_data
+            )
+            return Response(status_code=status.HTTP_200_OK)
     logger.debug("Outbound webhook processed successfully")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

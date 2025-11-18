@@ -6,6 +6,10 @@ class WrongUpdateTypeError(Exception):
     """Raised when inbound update has no message."""
 
 
+class IdempotencyKeyAlreadyProcessedError(Exception):
+    """Raised when idempotency key has already been processed."""
+
+
 class TransientError(Exception):
     """A temporary error that can be retried later."""
 
