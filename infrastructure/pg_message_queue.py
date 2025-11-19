@@ -17,30 +17,33 @@ class PGMessageQueue(IMessageQueue):
         self.settings = settings
         self._pg_dsn = self.settings.db_url
         self._pg_pool: asyncpg.pool.Pool | None = None
-        self._pool_init_event = asyncio.Event()
+        self._pool_init_lock = asyncio.Lock()
+        self._pool_closing_lock = asyncio.Lock()
+        self._event = asyncio.Event()
 
+    # noinspection PyUnresolvedReferences
     async def get_pg_pool(self) -> asyncpg.pool.Pool:
         min_size = 2
         max_size = 4
-        if self._pg_pool is None:
-            current_task = asyncio.current_task()
-            if current_task and current_task.get_name() == "incoming_worker":
-                # The first worker starts initializing the pool
-                await self.ensure_db_exists()
-                self._pg_pool = await asyncpg.create_pool(
-                    dsn=self._pg_dsn, min_size=min_size, max_size=max_size
-                )
-                self._pool_init_event.set()  # Signal that the pool is ready
-                logger.debug(
-                    "Pool has been created", min_size=min_size, max_size=max_size
-                )
-                await self.ensure_extension_and_tables()
-            else:
-                # Second and other workers wait for the event before using the pool
-                await self._pool_init_event.wait()
 
+        if self._pg_pool is None:
+            async with self._pool_init_lock:
+                if self._pg_pool is None:
+                    await self.ensure_db_exists()
+                    self._pg_pool = await asyncpg.create_pool(
+                        dsn=self._pg_dsn, min_size=min_size, max_size=max_size
+                    )
+                    logger.debug(
+                        "Pool has been created", min_size=min_size, max_size=max_size
+                    )
+                    await self.ensure_extension_and_tables()
+
+        task = asyncio.current_task()
         logger.debug(
-            "Pool already exists, reusing...", min_size=min_size, max_size=max_size
+            "Pool already exists, reusing...",
+            min_size=min_size,
+            max_size=max_size,
+            task_name=task.get_name() if task else None,
         )
         return self._pg_pool
 
@@ -120,7 +123,7 @@ class PGMessageQueue(IMessageQueue):
     async def archive(self, queue_name: str, msg_id: int) -> None:
         """Archives a message from the queue."""
 
-        logger.debug("Archiving message", queue=queue_name, msg_id=msg_id)
+        logger.warning("Archiving message", queue=queue_name, msg_id=msg_id)
         pool = await self.get_pg_pool()
         query = "SELECT pgmq.archive($1::text, $2::bigint)"
         async with pool.acquire() as conn:
@@ -161,13 +164,12 @@ class PGMessageQueue(IMessageQueue):
         pool = await self.get_pg_pool()
         async with pool.acquire() as conn:
             channel_name = f"pgmq.q_{queue_name}.INSERT"
-            event = asyncio.Event()
 
             def set_event(
                 _conn: Connection, _pid: int, _channel: str, _payload: str | None
             ) -> None:
                 if _channel == channel_name:
-                    event.set()
+                    self._event.set()
 
             await conn.add_listener(channel_name, set_event)
             logger.debug(
@@ -178,15 +180,16 @@ class PGMessageQueue(IMessageQueue):
             )
 
             try:
-                await asyncio.wait_for(event.wait(), timeout)
-                logger.info(
-                    "Notification received",
+                await asyncio.wait_for(self._event.wait(), timeout)
+                logger.debug(
+                    "The event was triggered",
                     queue=queue_name,
                     channel=channel_name,
                 )
+                self._event.clear()
                 return True
             except asyncio.TimeoutError:
-                logger.warning(
+                logger.debug(
                     "No notifications received within timeout",
                     queue=queue_name,
                     channel=channel_name,
@@ -222,10 +225,12 @@ class PGMessageQueue(IMessageQueue):
         logger.debug("Key marked as processed", key=key)
 
     async def close(self) -> None:
-        if self._pg_pool is not None:
-            logger.debug("Closing PG pool")
-            await self._pg_pool.close()
-            self._pg_pool = None
-            logger.debug("PG pool closed")
-        else:
-            logger.debug("PG pool already closed or not initialized")
+        async with self._pool_closing_lock:
+            if self._pg_pool is not None:
+                logger.debug("Closing PG pool")
+                self._event.set()
+                await self._pg_pool.close()
+                self._pg_pool = None
+                logger.debug("PG pool closed")
+            else:
+                logger.debug("PG pool already closed or not initialized")

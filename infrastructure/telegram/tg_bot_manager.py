@@ -1,6 +1,9 @@
+import structlog
 from aiogram import Bot
 
 from app.config import BotConfig
+
+logger = structlog.get_logger(__name__)
 
 
 class TelegramBotManager:
@@ -28,6 +31,7 @@ class TelegramBotManager:
         """Closes all active aiohttp sessions for managed bots."""
         for bot in self._bots.values():
             await bot.session.close()
+        logger.debug("Bot sessions closed")
 
     @property
     def bots(self) -> dict[str, Bot]:

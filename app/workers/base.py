@@ -34,8 +34,7 @@ class BaseWorker:
     async def stop(self) -> None:
         """Request the worker to stop and wait for all tasks to complete."""
         self._stopping.set()
-        if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
+        await self._mq.close()
 
     async def run(self) -> None:
         try:
@@ -46,6 +45,11 @@ class BaseWorker:
                     continue
 
                 await self._process_messages(messages)
+
+            if task := asyncio.current_task():
+                logger.debug("Worker is stopping...", task_name=task.get_name())
+            else:
+                logger.debug("No task to stop")
 
         finally:
             await self._finalize_tasks()
@@ -76,6 +80,7 @@ class BaseWorker:
 
     async def _handle_no_messages(self) -> None:
         """Handle empty queue case (wait for notification)."""
+        logger.debug("Worker is waiting for messages...", queue=self._queue_name)
         res = await self._mq.wait_for_notification(
             self._queue_name, timeout=self._wait_to
         )
@@ -104,8 +109,8 @@ class BaseWorker:
 
     async def _finalize_tasks(self) -> None:
         """Await all running tasks on shutdown."""
+        logger.warning(f"Tasks to complete: {len(self._tasks)}")
         if self._tasks:
-            logger.info("Finalizing tasks", count=len(self._tasks))
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
     async def _process_wrapper(self, msg: dict[str, Any]) -> None:
@@ -154,6 +159,7 @@ class BaseWorker:
                 read_ct_attempts=attempts,
                 error=repr(exc),
             )
+            raise
 
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """

@@ -46,9 +46,6 @@ class TelegramGateway(IGateway):
     async def set_webhooks(self) -> None:
         await self._wh_manager.set_wh()
 
-    async def send_to_telegram(self, bot: Bot, raw_data: dict[str, Any]) -> None:
-        await self._transport.send_to_telegram(bot, raw_data)
-
     async def send_to_user(
         self, message: dict[str, Any], limiter: Any = None
     ) -> DeliveryResult:
