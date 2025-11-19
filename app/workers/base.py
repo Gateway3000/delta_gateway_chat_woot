@@ -159,6 +159,7 @@ class BaseWorker:
                 read_ct_attempts=attempts,
                 error=repr(exc),
             )
+            raise
 
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """

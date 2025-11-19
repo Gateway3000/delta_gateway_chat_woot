@@ -8,7 +8,7 @@ from app.di import incoming_worker, outgoing_worker
 
 async def serve_api() -> None:
     config = uvicorn.Config(
-        app, host="0.0.0.0", port=8000, loop="asyncio", reload=True, use_colors=True
+        app, host="0.0.0.0", port=8000, loop="asyncio", reload=False, use_colors=True
     )
     server = uvicorn.Server(config)
     await server.serve()
