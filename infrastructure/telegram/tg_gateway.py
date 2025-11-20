@@ -1,6 +1,5 @@
 from typing import Any
 
-from aiogram import Bot
 
 from core.interfaces.gateway import IGateway
 from infrastructure.pydantic_models import DeliveryResult
@@ -21,18 +20,15 @@ class TelegramGateway(IGateway):
         routing: TelegramRouting,
         webhook_manager: TelegramWebhookManager,
         transport: TelegramTransport,
-        adapter: TelegramAdapter,
         io_processor: TelegramIOProcessor,
+        adapter: TelegramAdapter,
     ) -> None:
         self._bot_manager = bot_manager
         self._routing = routing
         self._wh_manager = webhook_manager
         self._transport = transport
-        self._adapter = adapter
         self._io_processor = io_processor
-
-    def get_bot(self, connector_id: str) -> Bot:
-        return self._bot_manager.get_bot_by_connector_id(connector_id)
+        self._adapter = adapter
 
     async def close_bot_sessions(self) -> None:
         await self._bot_manager.close_sessions()
@@ -52,9 +48,17 @@ class TelegramGateway(IGateway):
         return await self._transport.send_to_user(message)
 
     async def process_inbound(
-        self, connector_id: str, raw_data: dict[str, Any]
+        self,
+        raw_data: dict[str, Any],
+        connector_id: str,
     ) -> None:
-        await self._io_processor.process_inbound(connector_id, raw_data, self.channel)
+        await self._io_processor.process_inbound(raw_data, connector_id, self.channel)
 
-    async def process_outbound(self, raw_data: dict[str, Any]) -> None:
-        await self._io_processor.process_outbound(raw_data)
+    async def process_outbound(
+        self, raw_data: dict[str, Any], cw_account_id: str
+    ) -> None:
+        await self._io_processor.process_outbound(
+            raw_data,
+            cw_account_id,
+            self.channel,
+        )

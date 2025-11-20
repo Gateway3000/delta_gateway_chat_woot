@@ -24,11 +24,10 @@ tg_webhooks = TelegramWebhookManager(
     settings.wh_domain, settings.secret_token, tg_bot_manager
 )
 tg_transport = TelegramTransport(tg_bot_manager, dp)
-tg_adapter = TelegramAdapter()
+tg_adapter = TelegramAdapter(tg_routing)
 pgmq = PGMessageQueue(settings)
 tg_processor = TelegramIOProcessor(
     tg_bot_manager,
-    tg_routing,
     tg_transport,
     tg_adapter,
     pgmq,
@@ -36,7 +35,7 @@ tg_processor = TelegramIOProcessor(
     settings.outgoing_queue_name,
 )
 tg_gateway = TelegramGateway(
-    tg_bot_manager, tg_routing, tg_webhooks, tg_transport, tg_adapter, tg_processor
+    tg_bot_manager, tg_routing, tg_webhooks, tg_transport, tg_processor, tg_adapter
 )
 
 gateways = GatewayRegistry()

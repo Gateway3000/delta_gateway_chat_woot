@@ -20,7 +20,7 @@ class TelegramWebhookManager:
 
         for cid, bot in self._bots.bots.items():
             await bot.delete_webhook(drop_pending_updates=True)
-            webhook_url = f"{self._wh_domain}/ingest/incoming/tg/{cid}/webhook"
+            webhook_url = f"{self._wh_domain}/ingest/incoming/telegram/{cid}/webhook"
             await bot.set_webhook(
                 url=webhook_url,
                 secret_token=self._secret_token,

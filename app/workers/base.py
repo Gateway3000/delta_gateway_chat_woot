@@ -159,7 +159,9 @@ class BaseWorker:
                 read_ct_attempts=attempts,
                 error=repr(exc),
             )
-            raise
+            if attempts > 10:
+                return await self._mq.archive(self._queue_name, msg_id)
+        return None
 
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """
