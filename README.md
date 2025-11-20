@@ -81,8 +81,20 @@ Thus, it will run before every commit. To run it manually, use the command:
 ```bash
 pre-commit run --all-files
 ```
+## 5. Chatwoot Webhook
 
-## 5. Common Issues & Troubleshooting
+The webhook specified in Chatwoot must follow the format:
+
+```https://your-domain-name.com/ingest/outgoing/{channel}/{cw_account_id}/webhook```
+
+where:
+
+- `{channel}` is the name of the channel to which you send a message from Chatwoot (e.g., `telegram`). The channel name
+  must exactly match the `channel` attribute of the `IGateway` instance.
+- `{cw_account_id}` is the identifier of your Chatwoot Account, which corresponds to the environment variable with the
+  same name.
+
+## 6. Common Issues & Troubleshooting
 
 1. **Mypy errors**. Delete the `mypy_checks` folder – it contains cached type-checking data that can become corrupted.
 
@@ -179,7 +191,21 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## 5. Возможные проблемы
+## 5. Webhook в Chatwoot
+
+Вебхук, указанный в Chatwoot, должен соответствовать следующему формату:
+
+```https://your-domain-name.com/ingest/outgoing/{channel}/{cw_account_id}/webhook```,
+
+где:
+
+- `{channel}` - это имя
+  канала, в который вы отправляете сообщение из Chatwoot (например, `telegram`). Имя канала должно строго совпадать с
+  атрибутом класса `channel` в экземпляре `IGateway`.
+- `{cw_account_id}` - это идентификатор вашего Chatwoot Account,
+  который соответствует одноименной переменной окружения.
+
+## 6. Возможные проблемы
 
 1. **Ошибки mypy**: если столкнулись с нестандартным поведением mypy (ошибки, нехарактерные для проекта), первым делом
    удалите папку `mypy_checks`. Это директория с кешами mypy, и иногда проблемы могут возникать из-за неё.
