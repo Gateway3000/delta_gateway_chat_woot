@@ -11,7 +11,7 @@ from app.di import settings
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_telegram_outbound(
+async def test_chatwoot_telegram(
     monkeypatch: pytest.MonkeyPatch,
     start_workers: tuple[asyncio.Task[Any], asyncio.Task[Any]],
     get_db_pool: asyncpg.Pool,
@@ -35,7 +35,7 @@ async def test_telegram_outbound(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as cl:
         response = await cl.post(
-            f"/ingest/outgoing/{settings.bots_config[0].cw_account_id}/webhook",
+            f"/ingest/outgoing/telegram/{settings.bots_config[0].cw_account_id}/webhook",
             json=raw_data,
         )
         await asyncio.sleep(1)
@@ -54,14 +54,14 @@ async def test_telegram_outbound(
     assert q_from_cw_res[0]["count"] == 0
 
     # Check that the record was put in the "processed_keys" table
-    assert last_processed_key_res["key"] == "tg:tg2:123321:60538"
+    assert last_processed_key_res["key"] == "telegram:tg2:123321:60538"
 
     # ========== CHECK THE SECOND CALL WITH THE SAME ARGUMENTS, IT SHOULD BE PROCESSED DIFFERENTLY =========
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as cl:
         response = await cl.post(
-            f"/ingest/outgoing/{settings.bots_config[0].cw_account_id}/webhook",
+            f"/ingest/outgoing/telegram/{settings.bots_config[0].cw_account_id}/webhook",
             json=raw_data,
         )
 

@@ -1,12 +1,9 @@
-from datetime import datetime
-
 import structlog
 from fastapi import HTTPException, APIRouter, status
 from fastapi.requests import Request
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, ConfigDict
 
-from app.di import tg_gateway
+from app.di import gateways
 from core.exceptions import (
     ConnectorNotFoundError,
     WrongUpdateTypeError,
@@ -17,27 +14,14 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-class OutboundPayload(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, coerce_numbers_to_str=True)
-
-    channel: str
-    connector_id: str
-    inbox_id: str
-    cw_account_id: str
-    message_id: str
-    from_: dict[str, str] = Field(alias="from")
-    text: str
-    ts: datetime
-
-
-@router.post("/ingest/incoming/tg/{connector_id}/webhook")
-async def telegram_webhook(connector_id: str, request: Request) -> Response:
+@router.post("/ingest/incoming/{channel}/{connector_id}/webhook")
+async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Response:
     """FastAPI endpoint for handling Telegram webhooks."""
 
     raw_data = await request.json()
-
     try:
-        await tg_gateway.process_inbound(connector_id, raw_data)
+        gateway = gateways.get_gateway(channel)
+        await gateway.process_inbound(raw_data, connector_id)
     except ConnectorNotFoundError as e:
         logger.error("ConnectorNotFoundError", error=repr(e), raw_data=raw_data)
         raise HTTPException(
@@ -57,25 +41,15 @@ async def telegram_webhook(connector_id: str, request: Request) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/ingest/outgoing/{cw_account_id}/webhook")
-async def chatwoot_webhook(cw_account_id: str, request: Request) -> Response:
+@router.post("/ingest/outgoing/{channel}/{cw_account_id}/webhook")
+async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> Response:
     """FastAPI endpoint for handling Chatwoot webhooks."""
 
     raw_data = await request.json()
     if raw_data.get("message_type") == "outgoing":
-        # noinspection PyArgumentList
-        payload = OutboundPayload(
-            channel="telegram",
-            connector_id="",
-            inbox_id=raw_data["inbox"]["id"],
-            cw_account_id=cw_account_id,
-            message_id=raw_data["conversation"]["messages"][0]["id"],
-            from_={"id": raw_data["conversation"]["meta"]["sender"]["identifier"]},
-            text=raw_data.get("content"),
-            ts=float(datetime.now().timestamp()),
-        )
         try:
-            await tg_gateway.process_outbound(payload.model_dump(by_alias=True))
+            gateway = gateways.get_gateway(channel)
+            await gateway.process_outbound(raw_data, cw_account_id)
         except IdempotencyKeyAlreadyProcessedError as e:
             logger.info(
                 "IdempotencyKeyAlreadyProcessedError", error=repr(e), raw_data=raw_data

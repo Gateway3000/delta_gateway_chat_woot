@@ -5,14 +5,12 @@ from aiogram import Bot
 
 from core.exceptions import (
     ConnectorNotFoundError,
-    WrongUpdateTypeError,
     IdempotencyKeyAlreadyProcessedError,
 )
 from core.interfaces.message_queue import IMessageQueue
 from infrastructure.pydantic_models import Envelope
 from infrastructure.telegram.tg_adapter import TelegramAdapter
 from infrastructure.telegram.tg_bot_manager import TelegramBotManager
-from infrastructure.telegram.tg_routing import TelegramRouting
 from infrastructure.telegram.tg_transport import TelegramTransport
 
 logger = structlog.get_logger(__name__)
@@ -29,7 +27,6 @@ class TelegramIOProcessor:
     def __init__(
         self,
         bot_manager: TelegramBotManager,
-        routing: TelegramRouting,
         transport: TelegramTransport,
         adapter: TelegramAdapter,
         mq: IMessageQueue,
@@ -37,7 +34,6 @@ class TelegramIOProcessor:
         outgoing_queue_name: str,
     ) -> None:
         self._bot_manager = bot_manager
-        self._routing = routing
         self._transport = transport
         self._adapter = adapter
         self._mq = mq
@@ -45,16 +41,12 @@ class TelegramIOProcessor:
         self._oqn = outgoing_queue_name
 
     async def process_inbound(
-        self, connector_id: str, raw_data: dict[str, Any], channel: str
+        self, raw_data: dict[str, Any], connector_id: str, channel: str
     ) -> None:
+        idempotency_key, envelope = self._adapter.parse_channel_request(
+            raw_data, connector_id, channel
+        )
         bot = self._get_required_bot(connector_id)
-        route = self._routing.get_route_by_connector_id(connector_id)
-
-        message = raw_data.get("message")
-        if not message:
-            raise WrongUpdateTypeError("Wrong update type")
-
-        envelope, idempotency_key = self._build_envelope(message, route, channel)
         if not await self._is_already_processed(idempotency_key):
             await self._process_queue(self._iqn, idempotency_key, envelope)
             await self._transport.send_to_telegram(bot, raw_data)
@@ -63,10 +55,11 @@ class TelegramIOProcessor:
                 "Idempotency key has already been processed."
             )
 
-    async def process_outbound(self, raw_data: dict[str, Any]) -> None:
-        route = self._routing.get_route_by_inbox_id(raw_data["inbox_id"])
-        envelope, idempotency_key = self._build_envelope(
-            raw_data, route, raw_data["channel"]
+    async def process_outbound(
+        self, raw_data: dict[str, Any], cw_account_id: str, channel: str
+    ) -> None:
+        idempotency_key, envelope = self._adapter.parse_chatwoot_request(
+            raw_data, cw_account_id, channel
         )
 
         if not await self._is_already_processed(idempotency_key):
@@ -80,15 +73,6 @@ class TelegramIOProcessor:
         if bot := self._bot_manager.get_bot_by_connector_id(connector_id):
             return bot
         raise ConnectorNotFoundError(f"Unknown connector_id={connector_id}")
-
-    def _build_envelope(
-        self, raw_data: dict[str, Any], route: dict[str, str], channel: str
-    ) -> tuple[Envelope, str]:
-        idempotency_key = self._adapter.idempotency_key(raw_data, route)
-        envelope = self._adapter.normalize_inbound(
-            raw=raw_data, route=route, idempotency_key=idempotency_key, channel=channel
-        )
-        return envelope, idempotency_key
 
     async def _is_already_processed(self, idempotency_key: str) -> bool:
         return await self._mq.is_already_processed(idempotency_key)

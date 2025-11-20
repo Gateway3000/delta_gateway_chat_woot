@@ -30,10 +30,14 @@ class IGateway(ABC):
 
     @abstractmethod
     async def process_inbound(
-        self, connector_id: str, raw_data: dict[str, Any]
+        self,
+        raw_data: dict[str, Any],
+        connector_id: str,
     ) -> None:
         """Processes an inbound message received from an external channel."""
 
     @abstractmethod
-    async def process_outbound(self, raw_data: dict[str, Any]) -> None:
+    async def process_outbound(
+        self, raw_data: dict[str, Any], cw_account_id: str
+    ) -> None:
         """Processes an outbound message originating from Chatwoot."""
