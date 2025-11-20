@@ -68,7 +68,21 @@ you're doing.
 Tests have logging enabled. If you don't want it, or need a different level, configure it in `pyproject.toml` in the
 `[tool.pytest.ini_options]` section. Three parameters are of interest: `log_cli`, `log_cli_format`, `log_cli_level`
 
-## 4. Common Issues & Troubleshooting
+## 4. Pre-commit
+
+In the project, [pre-commit](https://pre-commit.com/) is used. To apply it, it must be installed in Git:
+
+```bash
+pre-commit install
+```
+
+Thus, it will run before every commit. To run it manually, use the command:
+
+```bash
+pre-commit run --all-files
+```
+
+## 5. Common Issues & Troubleshooting
 
 1. **Mypy errors**. Delete the `mypy_checks` folder – it contains cached type-checking data that can become corrupted.
 
@@ -150,12 +164,28 @@ CREATE USER test WITH PASSWORD 'test' CREATEDB;
 В тестах включено логирование. Если оно вам не нужно, либо нужен другой уровень - настройте это в `pyproject.toml` в
 секции `[tool.pytest.ini_options]`. Вас интересуют три параметра: `log_cli`, `log_cli_format`, `log_cli_level`
 
-## 4. Возможные проблемы
+## 4. Pre-commit
+
+В проекте используется [pre-commit](https://pre-commit.com/). Для его применения, его необходимо проинсталлировать в
+Git:
+
+```bash
+pre-commit install
+```
+
+Таким образом, он будет запускаться **перед каждым коммитом**. Для мануального запуска используйте команду:
+
+```bash
+pre-commit run --all-files
+```
+
+## 5. Возможные проблемы
 
 1. **Ошибки mypy**: если столкнулись с нестандартным поведением mypy (ошибки, нехарактерные для проекта), первым делом
    удалите папку `mypy_checks`. Это директория с кешами mypy, и иногда проблемы могут возникать из-за неё.
 
-2. **Проблемы с подключением к PostgreSQL**: убедитесь, что сервер PostgreSQL доступен на порту `5432`. Это может быть как
+2. **Проблемы с подключением к PostgreSQL**: убедитесь, что сервер PostgreSQL доступен на порту `5432`. Это может быть
+   как
    локальный сервер, так и контейнер в Docker.
 
 3. **Именование модулей с тестами**: модули с тестами следует называть с постфиксом `test` (например, `client_test`, а
