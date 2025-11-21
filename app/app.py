@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.di import tg_gateway, dp, incoming_worker, outgoing_worker
 from app.routes.telegram.handlers.basic_handlers import router as telegram_handler
-from app.routes.telegram.routers.router import router as telegram_router
+from app.routes.telegram.routers.router import router
 from app.utils.asyncio_policy import check_eventloop_policy
 from app.utils.logger import setup_logging
 
@@ -28,6 +28,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(telegram_router)
+app.include_router(router)
 
 dp.include_router(telegram_handler)
