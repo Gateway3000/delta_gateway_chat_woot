@@ -30,14 +30,14 @@ class TelegramGateway(IGateway):
         self._io_processor = io_processor
         self._adapter = adapter
 
-    async def close_bot_sessions(self) -> None:
+    async def on_startup(self) -> None:
+        await self._wh_manager.set_wh()
+
+    async def on_shutdown(self) -> None:
         await self._bot_manager.close_sessions()
 
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
         return self._routing.get_route_by_connector_id(connector_id)
-
-    async def set_webhooks(self) -> None:
-        await self._wh_manager.set_wh()
 
     async def send_to_user(
         self, message: dict[str, Any], limiter: Any = None

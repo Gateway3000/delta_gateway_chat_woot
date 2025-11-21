@@ -38,10 +38,10 @@ tg_gateway = TelegramGateway(
     tg_bot_manager, tg_routing, tg_webhooks, tg_transport, tg_processor, tg_adapter
 )
 
-gateways = GatewayRegistry()
-gateways.register_gateway(tg_gateway)
+registry = GatewayRegistry()
+registry.register_gateway(tg_gateway)
 
 cwc = ChatwootClient(settings.chatwoot_access_token, settings.base_cw_url)
 
-incoming_worker = IncomingWorker(pgmq, cwc, settings.incoming_queue_name, gateways)
-outgoing_worker = OutgoingWorker(pgmq, settings.outgoing_queue_name, gateways)
+incoming_worker = IncomingWorker(pgmq, cwc, settings.incoming_queue_name, registry)
+outgoing_worker = OutgoingWorker(pgmq, settings.outgoing_queue_name, registry)

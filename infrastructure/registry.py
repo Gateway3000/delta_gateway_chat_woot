@@ -1,6 +1,10 @@
 from importlib.metadata import entry_points
 
+import structlog
+
 from core.interfaces.gateway import IGateway
+
+logger = structlog.get_logger(__name__)
 
 
 class GatewayRegistry:
@@ -29,3 +33,15 @@ class GatewayRegistry:
         if channel not in self._gateways:
             raise ValueError(f"Gateway for channel '{channel}' not found")
         return self._gateways[channel]
+
+    async def on_startup(self) -> None:
+        for gateway in self._gateways.values():
+            logger.info(f'Initializing gateway for channel "{gateway.channel}"...')
+            await gateway.on_startup()
+
+    async def on_shutdown(self) -> None:
+        for gateway in self._gateways.values():
+            logger.info(
+                f'Initiating shutdown for gateway on channel "{gateway.channel}"...'
+            )
+            await gateway.on_shutdown()

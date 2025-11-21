@@ -37,3 +37,11 @@ class IGateway(ABC):
         self, raw_data: dict[str, Any], cw_account_id: str
     ) -> None:
         """Processes an outbound message originating from Chatwoot."""
+
+    @abstractmethod
+    async def on_startup(self) -> None:
+        """Called when the application starts up."""
+
+    @abstractmethod
+    async def on_shutdown(self) -> None:
+        """Called when the application shuts down."""

@@ -3,7 +3,7 @@ from fastapi import HTTPException, APIRouter, status
 from fastapi.requests import Request
 from fastapi.responses import Response
 
-from app.di import gateways
+from app.di import registry
 from core.exceptions import (
     ConnectorNotFoundError,
     WrongUpdateTypeError,
@@ -20,7 +20,7 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
 
     raw_data = await request.json()
     try:
-        gateway = gateways.get_gateway(channel)
+        gateway = registry.get_gateway(channel)
         await gateway.process_inbound(raw_data, connector_id)
     except ConnectorNotFoundError as e:
         logger.error("ConnectorNotFoundError", error=repr(e), raw_data=raw_data)
@@ -48,7 +48,7 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
     raw_data = await request.json()
     if raw_data.get("message_type") == "outgoing":
         try:
-            gateway = gateways.get_gateway(channel)
+            gateway = registry.get_gateway(channel)
             await gateway.process_outbound(raw_data, cw_account_id)
         except IdempotencyKeyAlreadyProcessedError as e:
             logger.info(
