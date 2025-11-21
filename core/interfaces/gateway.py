@@ -19,10 +19,6 @@ class IGateway(ABC):
         """Retrieves the route information associated with a given connector ID."""
 
     @abstractmethod
-    def get_route_by_inbox_id(self, inbox_id: str) -> dict[str, str]:
-        """Retrieves the route information associated with a given Chatwoot inbox ID."""
-
-    @abstractmethod
     async def send_to_user(
         self, message: dict[str, Any], limiter: Any = None
     ) -> DeliveryResult:
