@@ -10,6 +10,7 @@ from app.app import app
 from app.di import settings
 
 
+@pytest.mark.order(1)
 @pytest.mark.asyncio(loop_scope="session")
 async def test_telegram_chatwoot(
     monkeypatch: pytest.MonkeyPatch,
