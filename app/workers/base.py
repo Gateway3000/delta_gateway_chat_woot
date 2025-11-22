@@ -1,5 +1,6 @@
 import asyncio
 import json
+import random
 from typing import Any
 
 import structlog
@@ -17,14 +18,12 @@ class BaseWorker:
         queue_name: str,
         vt_seconds: int = 30,
         read_timeout: float = 10,
-        wait_timeout: float = 300,
         message_limit: int = 1,
     ):
         self._mq = mq
         self._queue_name = queue_name
         self._vt = vt_seconds
         self._read_to = read_timeout
-        self._wait_to = wait_timeout
         self._message_limit = message_limit
 
         self._sem = asyncio.Semaphore(message_limit)
@@ -50,8 +49,13 @@ class BaseWorker:
                 logger.debug("Worker is stopping...", task_name=task.get_name())
             else:
                 logger.debug("No task to stop")
-
+        except Exception as exc:
+            logger.critical(
+                "Unknown error occurred", queue=self._queue_name, error=repr(exc)
+            )
+            raise
         finally:
+            logger.warning("Finalizing...")
             await self._finalize_tasks()
 
     async def _safe_read_queue(self) -> list[dict[str, Any]]:
@@ -81,14 +85,15 @@ class BaseWorker:
     async def _handle_no_messages(self) -> None:
         """Handle empty queue case (wait for notification)."""
         logger.debug("Worker is waiting for messages...", queue=self._queue_name)
+        wait_timeout = random.randint(290, 310)
         res = await self._mq.wait_for_notification(
-            self._queue_name, timeout=self._wait_to
+            self._queue_name, timeout=wait_timeout
         )
         if res is False:
             logger.info(
                 "Worker stopped due to timeout",
                 queue=self._queue_name,
-                timeout=self._wait_to,
+                timeout=wait_timeout,
             )
 
     def _on_task_done(self, tsk: asyncio.Task[None]) -> None:
@@ -120,6 +125,8 @@ class BaseWorker:
 
         if isinstance(payload, str):
             payload = json.loads(payload)
+        else:
+            raise ValueError("payload must be a string")
 
         await self._handle_with_retries(msg_id, payload, attempts)
 
@@ -173,5 +180,5 @@ class BaseWorker:
         - Success: delete the message from the queue.
         """
         raise NotImplementedError(
-            "_handle_with_retries must be implemented by child classes"
+            "_handle_message must be implemented by child classes"
         )

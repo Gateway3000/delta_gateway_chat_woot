@@ -1,9 +1,11 @@
 import asyncio
+import contextlib
 from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
 import structlog
+import tenacity
 from asyncpg import Connection
 
 from app.config import Settings
@@ -98,6 +100,12 @@ class PGMessageQueue(IMessageQueue):
             await conn.execute(query, queue_name, payload)
         logger.debug("Message sent", queue=queue_name)
 
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(multiplier=10, max=600),
+        retry=tenacity.retry_if_exception_type((OSError, ConnectionError)),
+        before_sleep=tenacity.before_sleep_log(logger, 40),
+        reraise=True,
+    )
     async def read(
         self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]:
@@ -197,12 +205,13 @@ class PGMessageQueue(IMessageQueue):
                 )
                 return False
             finally:
-                await conn.remove_listener(channel_name, set_event)
-                logger.debug(
-                    "Listener removed",
-                    queue=queue_name,
-                    channel=channel_name,
-                )
+                with contextlib.suppress(asyncpg.InterfaceError):
+                    await conn.remove_listener(channel_name, set_event)
+                    logger.debug(
+                        "Listener removed",
+                        queue=queue_name,
+                        channel=channel_name,
+                    )
 
     async def is_already_processed(self, key: str) -> bool:
         pool = await self.get_pg_pool()
