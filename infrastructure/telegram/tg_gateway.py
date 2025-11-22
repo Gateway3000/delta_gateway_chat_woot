@@ -1,6 +1,5 @@
 from typing import Any
 
-
 from core.interfaces.gateway import IGateway
 from infrastructure.pydantic_models import DeliveryResult
 from infrastructure.telegram.tg_adapter import TelegramAdapter
@@ -8,7 +7,6 @@ from infrastructure.telegram.tg_bot_manager import TelegramBotManager
 from infrastructure.telegram.tg_io_processor import TelegramIOProcessor
 from infrastructure.telegram.tg_routing import TelegramRouting
 from infrastructure.telegram.tg_transport import TelegramTransport
-from infrastructure.telegram.tg_wh_manager import TelegramWebhookManager
 
 
 class TelegramGateway(IGateway):
@@ -18,20 +16,18 @@ class TelegramGateway(IGateway):
         self,
         bot_manager: TelegramBotManager,
         routing: TelegramRouting,
-        webhook_manager: TelegramWebhookManager,
         transport: TelegramTransport,
         io_processor: TelegramIOProcessor,
         adapter: TelegramAdapter,
     ) -> None:
         self._bot_manager = bot_manager
         self._routing = routing
-        self._wh_manager = webhook_manager
         self._transport = transport
         self._io_processor = io_processor
         self._adapter = adapter
 
     async def on_startup(self) -> None:
-        await self._wh_manager.set_wh()
+        pass
 
     async def on_shutdown(self) -> None:
         await self._bot_manager.close_sessions()

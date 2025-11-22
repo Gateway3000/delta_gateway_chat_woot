@@ -2,28 +2,18 @@ import asyncio
 
 import uvicorn
 
-from app.app import app
-from app.di import incoming_worker, outgoing_worker
+from app.di import tg_webhooks
 
-
-async def serve_api() -> None:
-    config = uvicorn.Config(
-        app, host="0.0.0.0", port=8000, loop="asyncio", reload=False, use_colors=True
-    )
-    server = uvicorn.Server(config)
-    await server.serve()
-
-
-async def main() -> None:
-    task_api = asyncio.create_task(serve_api())
-    task_incoming_worker = asyncio.create_task(
-        incoming_worker.run(), name="incoming_worker"
-    )
-    task_outgoing_worker = asyncio.create_task(
-        outgoing_worker.run(), name="outgoing_worker"
-    )
-    await asyncio.gather(task_api, task_incoming_worker, task_outgoing_worker)
+WORKERS = 3
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(tg_webhooks.set_wh())
+    uvicorn.run(
+        "app.app:app",
+        host="0.0.0.0",
+        port=8000,
+        use_colors=True,
+        loop="asyncio",
+        workers=WORKERS,
+    )

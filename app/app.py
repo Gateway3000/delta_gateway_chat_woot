@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -16,6 +17,12 @@ setup_logging()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    asyncio.create_task(
+        incoming_worker.run(), name=f"incoming_worker_pid_{os.getpid()}"
+    )
+    asyncio.create_task(
+        outgoing_worker.run(), name=f"outgoing_worker_pid_{os.getpid()}"
+    )
     await registry.on_startup()
     yield
     await registry.on_shutdown()

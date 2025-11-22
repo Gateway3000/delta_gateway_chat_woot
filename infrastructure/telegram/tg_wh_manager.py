@@ -25,3 +25,4 @@ class TelegramWebhookManager:
                 url=webhook_url,
                 secret_token=self._secret_token,
             )
+            await bot.session.close()

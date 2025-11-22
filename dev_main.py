@@ -1,35 +1,16 @@
 import asyncio
 
-import contextlib
-
-import structlog
 import uvicorn
 
-from app.app import app
-from app.di import incoming_worker, outgoing_worker
-
-logger = structlog.get_logger(__name__)
-
-
-async def serve_api() -> None:
-    config = uvicorn.Config(
-        app, host="0.0.0.0", port=8000, loop="asyncio", reload=True, use_colors=True
-    )
-    server = uvicorn.Server(config)
-    await server.serve()
-
-
-async def main() -> None:
-    task_api = asyncio.create_task(serve_api(), name="api")
-    task_incoming_worker = asyncio.create_task(
-        incoming_worker.run(), name="incoming_worker"
-    )
-    task_outgoing_worker = asyncio.create_task(
-        outgoing_worker.run(), name="outgoing_worker"
-    )
-    with contextlib.suppress(asyncio.CancelledError):
-        await asyncio.gather(task_api, task_incoming_worker, task_outgoing_worker)
-
+from app.di import tg_webhooks
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    asyncio.run(tg_webhooks.set_wh())
+    uvicorn.run(
+        "app.app:app",
+        host="0.0.0.0",
+        port=8000,
+        use_colors=True,
+        loop="asyncio",
+        reload=True,
+    )
