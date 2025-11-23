@@ -5,7 +5,7 @@ import asyncpg
 import pytest_asyncio
 import structlog
 
-from app.di import incoming_worker, outgoing_worker, pgmq
+from app.di import incoming_worker, outgoing_worker, conn_manager, pgmq
 
 logger = structlog.get_logger(__name__)
 
@@ -18,7 +18,8 @@ async def start_workers() -> None:
 
 @pytest_asyncio.fixture(autouse=True, scope="session")
 async def get_db_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    pool = await pgmq.get_pg_pool()
+    await pgmq.ensure_database_ready()
+    pool = await conn_manager.get_pg_pool()
     yield pool
     async with pool.acquire() as conn:
         await truncate_all_tables(conn)

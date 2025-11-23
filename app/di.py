@@ -4,7 +4,7 @@ from app.config import Settings
 from app.workers.incoming import IncomingWorker
 from app.workers.outgoing import OutgoingWorker
 from infrastructure.chatwoot_client.cw_client import ChatwootClient
-from infrastructure.pg_message_queue import PGMessageQueue
+from infrastructure.pg_message_queue import PGMessageQueue, ConnManager
 from infrastructure.registry import GatewayRegistry
 from infrastructure.telegram.tg_adapter import TelegramAdapter
 from infrastructure.telegram.tg_bot_manager import TelegramBotManager
@@ -17,7 +17,6 @@ from infrastructure.telegram.tg_wh_manager import TelegramWebhookManager
 settings = Settings()
 
 dp = Dispatcher()
-
 tg_bot_manager = TelegramBotManager(settings.bots_config)
 tg_routing = TelegramRouting(settings.bots_config)
 tg_webhooks = TelegramWebhookManager(
@@ -25,7 +24,8 @@ tg_webhooks = TelegramWebhookManager(
 )
 tg_transport = TelegramTransport(tg_bot_manager, dp)
 tg_adapter = TelegramAdapter(tg_routing)
-pgmq = PGMessageQueue(settings)
+conn_manager = ConnManager(settings.db_url)
+pgmq = PGMessageQueue(settings, conn_manager)
 tg_processor = TelegramIOProcessor(
     tg_bot_manager,
     tg_transport,
