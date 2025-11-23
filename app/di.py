@@ -4,7 +4,8 @@ from app.config import Settings
 from app.workers.incoming import IncomingWorker
 from app.workers.outgoing import OutgoingWorker
 from infrastructure.chatwoot_client.cw_client import ChatwootClient
-from infrastructure.pg_message_queue import PGMessageQueue, ConnManager
+from infrastructure.pg_message_queue import PGMessageQueue
+from infrastructure.pg_conn_manager import ConnManager
 from infrastructure.registry import GatewayRegistry
 from infrastructure.telegram.tg_adapter import TelegramAdapter
 from infrastructure.telegram.tg_bot_manager import TelegramBotManager
