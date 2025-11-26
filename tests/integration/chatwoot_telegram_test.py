@@ -44,7 +44,7 @@ async def test_chatwoot_telegram(
     async with get_db_pool.acquire() as conn:
         q_from_cw_res = await conn.fetch("SELECT COUNT(*) FROM pgmq.q_from_cw")
         last_processed_key_res = await conn.fetchrow(
-            "SELECT * FROM public.processed_keys ORDER BY key DESC LIMIT 1"
+            "SELECT * FROM pgmq.processed_keys ORDER BY key DESC LIMIT 1"
         )
 
     assert response.status_code == 204

@@ -46,7 +46,7 @@ class PGMessageQueue(IMessageQueue):
 
         # Create the processed_keys table if it doesn't exist
         await conn.execute("""
-                CREATE TABLE IF NOT EXISTS processed_keys (
+                CREATE TABLE IF NOT EXISTS pgmq.processed_keys (
                     key TEXT PRIMARY KEY,
                     processed_at TIMESTAMPTZ DEFAULT NOW()
                 );
@@ -186,7 +186,7 @@ class PGMessageQueue(IMessageQueue):
 
     async def is_already_processed(self, key: str) -> bool:
         pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT 1 FROM processed_keys WHERE key = $1"
+        query = "SELECT 1 FROM pgmq.processed_keys WHERE key = $1"
 
         async with pool.acquire() as conn:
             row = await conn.fetchrow(query, key)
@@ -196,7 +196,7 @@ class PGMessageQueue(IMessageQueue):
         logger.debug("Marking key as processed", key=key)
         pool = await self._conn_manager.get_pg_pool()
         query = """
-            INSERT INTO processed_keys (key, processed_at)
+            INSERT INTO pgmq.processed_keys (key, processed_at)
             VALUES ($1, $2)
             ON CONFLICT (key) DO NOTHING
         """
