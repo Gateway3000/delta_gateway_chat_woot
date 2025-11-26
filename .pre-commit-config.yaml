@@ -9,6 +9,7 @@ repos:
       - id: check-added-large-files
         args: [ '--maxkb=300' ]
       - id: name-tests-test
+        exclude: tests/data/.*
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.18.1

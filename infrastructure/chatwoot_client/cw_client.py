@@ -66,14 +66,6 @@ class ChatwootClient(IChatwootClient):
                     account_id, contact.contact_id, contact.source_id, inbox_id
                 )
 
-        if conversation_id is None:
-            logger.error(
-                f"Conversation ID is None for account_id={account_id}, "
-                f"contact_id={contact.contact_id}, inbox_id={inbox_id}. "
-                "Logic error: conversation should have been created or retrieved at this point."
-            )
-            raise RuntimeError("Conversation ID not initialized")
-
         # Step 2: Create and send a new incoming message
         await self._create_message(account_id, conversation_id, "incoming", content)
 
@@ -87,7 +79,7 @@ class ChatwootClient(IChatwootClient):
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self._headers, params=params) as resp:
-                data = await self._safe_json(resp)
+                data = await self._handle_exceptions(resp)
                 self._handle_response_errors(resp, data, identifier)
 
         payload = data.get("payload", [])
@@ -117,7 +109,7 @@ class ChatwootClient(IChatwootClient):
 
     async def _get_conversation_id(
         self, account_id: int, contact_id: int, inbox_id: int
-    ) -> int | None:
+    ) -> int:
         """Retrieve the conversation ID for a contact in a given account.
         Returns conversation ID if found, otherwise None.
         """
@@ -126,18 +118,18 @@ class ChatwootClient(IChatwootClient):
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self._headers) as resp:
-                data = await self._safe_json(resp)
+                data = await self._handle_exceptions(resp)
                 self._handle_response_errors(resp, data, str(contact_id))
 
         payload = data.get("payload", [])
 
         for p in payload:
             if p["inbox_id"] == inbox_id:
-                return p.get("id")
+                return p["id"]
 
     async def _create_conversation(
         self, account_id: int, contact_id: int, source_id: str, inbox_id: int
-    ) -> int | None:
+    ) -> int:
         """Create a new conversation for a contact. Returns the ID of the created conversation."""
 
         url = f"{self.base_url}/api/v1/accounts/{account_id}/conversations"
@@ -150,10 +142,10 @@ class ChatwootClient(IChatwootClient):
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=self._headers, json=payload) as resp:
-                data = await self._safe_json(resp)
+                data = await self._handle_exceptions(resp)
                 self._handle_response_errors(resp, data, str(contact_id))
 
-        return data.get("id", None)
+        return data["id"]
 
     async def _create_contact(
         self,
@@ -177,7 +169,7 @@ class ChatwootClient(IChatwootClient):
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=self._headers, json=payload) as resp:
-                data = await self._safe_json(resp)
+                data = await self._handle_exceptions(resp)
                 self._handle_response_errors(resp, data, tid)
 
         contact = data["payload"]["contact"]
@@ -210,17 +202,18 @@ class ChatwootClient(IChatwootClient):
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=self._headers, json=payload) as resp:
-                data = await self._safe_json(resp)
+                data = await self._handle_exceptions(resp)
                 self._handle_response_errors(resp, data, str(conversation_id))
 
     @staticmethod
-    async def _safe_json(resp: ClientResponse) -> dict[str, Any]:
+    async def _handle_exceptions(resp: ClientResponse) -> dict[str, Any]:
         """Safely parse response JSON, falling back to plain text if needed."""
 
         try:
             return await resp.json()
-        except ContentTypeError:
-            return {"error": await resp.text()}
+        except ContentTypeError as exc:
+            logger.error("Content type error", error=repr(exc), resp=resp.text())
+            raise
 
     @staticmethod
     def _handle_response_errors(

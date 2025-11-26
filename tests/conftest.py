@@ -2,12 +2,11 @@ import asyncio
 from typing import AsyncGenerator, Any
 
 import asyncpg
+import pytest
 import pytest_asyncio
-import structlog
 
 from app.di import incoming_worker, outgoing_worker, conn_manager, pgmq
-
-logger = structlog.get_logger(__name__)
+from infrastructure.chatwoot_client.cw_client import ChatwootClient
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -39,3 +38,10 @@ async def truncate_all_tables(conn: Any) -> None:
         await conn.execute(
             f"TRUNCATE TABLE {schema}.{table_name} RESTART IDENTITY CASCADE;"
         )
+
+
+@pytest.fixture
+def client() -> ChatwootClient:
+    return ChatwootClient(
+        api_access_token="test-token", base_url="https://chatwoot.example.com"
+    )
