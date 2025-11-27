@@ -26,6 +26,7 @@ First, install all dependencies (including dev and extras):
 ```bash
 uv sync --all-extras --dev
 ```
+
 Then start the app:
 
 ```bash
@@ -43,7 +44,7 @@ python dev_main.py
 | **CHATWOOT_ACCESS_TOKEN**                           | Personal access token from Chatwoot → Profile Settings → Access Token (bottom of the page).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **DB_USER / DB_PASS / DB_HOST / DB_PORT / DB_NAME** | PostgreSQL connection parameters. Default port is `5432`. If changed, also update `.test.env` for tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **INCOMING_QUEUE_NAME**<br>**OUTGOING_QUEUE_NAME**  | Database queue table names. Change only if absolutely necessary.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| **WH_DOMAIN**                                       | This app requires a webhook to work. You can use [Cloudflared](https://github.com/cloudflare/cloudflared), [Serveo](https://serveo.net/), [localhost.run](https://localhost.run/). Or Ngrok (where available).                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **WH_DOMAIN**                                       | This app requires a webhook to work. You can use [Cloudflared](https://github.com/cloudflare/cloudflared) (see below), [Serveo](https://serveo.net/), [localhost.run](https://localhost.run/). Or Ngrok (where available).                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **ENVIRONMENT**                                     | `DEVELOPMENT` or `PRODUCTION`. Overrides certain internal defaults.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **DEV_BASE_URL**<br>**PROD_BASE_URL**               | Base URL of your Chatwoot instance (used depending on `ENVIRONMENT`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **LOG_LEVEL**                                       | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -83,6 +84,7 @@ Thus, it will run before every commit. To run it manually, use the command:
 ```bash
 pre-commit run --all-files
 ```
+
 ## 5. Chatwoot Webhook
 
 The webhook specified in Chatwoot must follow the format:
@@ -96,6 +98,66 @@ where:
 - `{cw_account_id}` is the identifier of your Chatwoot Account, which corresponds to the environment variable with the
   same name.
 
+### 5.1 Using Cloudflare Tunnels to Create a Webhook for Local Development
+
+Requirements:
+
+1. Cloudflare account (free)
+2. Domain name on Cloudflare DNS
+3. Server (optional for Europe, mandatory for Russia. Cloudflare is blocked in Russia)
+
+First, create a tunnel: `Access` -> `Launch Zero Trust` -> `Networks` -> `Connectors` -> `Create a tunnel`. Choose
+Cloudflared, give it a name, and click Save. You will then be prompted to select an operating system or environment.
+Here, choose Docker. Below, you will see a command like this:
+
+```bash
+docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+This needs to be slightly modified to the following:
+
+```bash
+docker run -d \
+  --name cloudflared-webhook \
+  --restart unless-stopped \
+  --network host \
+  cloudflare/cloudflared:latest \
+  tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Continue with the tunnel setup. After selecting Docker, click `Next` in the bottom right corner. This will open the *
+*Route Traffic** panel, where you need to link the tunnel to your domain name. In the subdomain field, enter something
+like `mytunnel`, and select your domain. Leave the Path field empty (you can also specify a full or partial path to the
+webhook here to filter out unnecessary requests from the internet).
+
+> **Important!** In the Service -> Type field, select **HTTP**, not HTTPS! In the URL field, enter
+> `127.0.0.1:<any port above 2000>`. You can use the same `8000` that your application is running on.
+
+Next, log into the server, install Docker (if it’s not already installed), and run the command in the terminal. The
+image will be downloaded, and the container will start. You can check the logs with:
+
+```bash
+docker logs <container name> --tail 100
+```
+
+Ensure there are no connection errors in the logs. Also, check the tunnel status in `Zero Trust` -> `Networks` ->
+`Connectors`: the tunnel should be marked as Healthy.
+
+Open the local console and run the following command:
+
+```bash
+ssh -N -i <path to SSH key> -R 8000:0.0.0.0:8000 <login>@<server ip>
+```
+
+Make sure to replace the port with the one you specified in Cloudflare!
+Now, as long as the SSH tunnel is active, all requests will be forwarded to your local machine.
+
+> **Note for countries where Cloudflare is not blocked**: You can complete the first domain setup step and, instead of
+> using a server, run the default command on your local machine:
+> ```bash
+> docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
+> ```
+
 ## 6. Common Issues & Troubleshooting
 
 1. **Mypy errors**. Delete the `mypy_checks` folder – it contains cached type-checking data that can become corrupted.
@@ -106,6 +168,7 @@ where:
    required by pre-commit checks. Individual test functions must start with `test_` (e.g., `test_webhook`).
 
 ---
+[EN](#1-running-the-project)
 
 ## 1. Запуск проекта
 
@@ -151,7 +214,7 @@ python dev_main.py
 | **CHATWOOT_ACCESS_TOKEN**                           | Персональный токен для взаимодействия с API Chatwoot. Можно найти в Profile Settings (не путать с Settings!) в самом низу страницы (Access Token).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **DB_USER / DB_PASS / DB_HOST / DB_PORT / DB_NAME** | Соответствующие настройки подключения базы данных. Используйте порт `5432` по умолчанию, либо переназначьте на свой. В этом случае, не забудьте исправить порт в `.test.env`, если планируете использовать эту же базу данных и для тестов.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **INCOMING_QUEUE_NAME**<br>**OUTGOING_QUEUE_NAME**  | Названия таблиц-очередей в базе данных. Не меняйте без крайней необходимости!                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **WH_DOMAIN**                                       | Это приложение требует вебхук для работы. Можно использовать [Cloudflared](https://github.com/cloudflare/cloudflared), [Serveo](https://serveo.net/), [localhost.run](https://localhost.run/). Или Ngrok (доступен не во всех странах).                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **WH_DOMAIN**                                       | Это приложение требует вебхук для работы. Можно использовать [Cloudflared](https://github.com/cloudflare/cloudflared) (подробнее смотри ниже), [Serveo](https://serveo.net/), [localhost.run](https://localhost.run/). Или Ngrok (доступен не во всех странах).                                                                                                                                                                                                                                                                                                                                                                                     |
 | **ENVIRONMENT**                                     | Допустимые значения: `DEVELOPMENT` или `PRODUCTION`. Переопределяет некоторые переменные проекта.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **DEV_BASE_URL**<br>**PROD_BASE_URL**               | Базовые URL вашего Chatwoot (используются в зависимости от `ENVIRONMENT`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **LOG_LEVEL**                                       | Уровень логирования: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -206,6 +269,67 @@ pre-commit run --all-files
   атрибутом класса `channel` в экземпляре `IGateway`.
 - `{cw_account_id}` - это идентификатор вашего Chatwoot Account,
   который соответствует одноименной переменной окружения.
+
+### 5.1 Использование Cloudflare tunnels для создания вебхука для локальной разработки
+
+Понадобится:
+
+1. Аккаунт Cloudflare (бесплатный)
+2. Доменное имя на DNS Cloudflare
+3. Сервер (для Европы опционально, для РФ - обязательно. В РФ Cloudflare заблокирован)
+
+Создаём туннель: `Access` -> `Launch Zero Trust` -> `Networks` -> `Connectors` ->
+`Create a tunnel`. Выбираем Cloudflared, даем ему имя и нажимаем Save. Будет предложен выбор ОС или среды. Здесь
+выбираем Docker. Чуть ниже появится комманда вида:
+
+```bash
+docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+её нужно немного видоизменить на следующую:
+
+```bash
+docker run -d \
+  --name cloudflared-webhook \
+  --restart unless-stopped \
+  --network host \
+  cloudflare/cloudflared:latest \
+  tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Продолжаем настройку туннеля: после выбора Docker нужно нажать на `Next`. В правом нижнем углу откроется панель **Route
+Traffic**, где необходимо привязать туннель к доменному имени. В subdomain прописываем, например, `mytunnel`, выбираем
+домен. Path оставляем пустой (также сюда можно прописать полный, либо частичный путь до вебхука, чтобы отрезать лишние
+запросы из интернета).
+
+> **Очень важно!** В Service -> Type указываем **HTTP**, а не HTTPS! В URL указываем `127.0.0.1:<любой порт выше 2000>`.
+> Можно указать тот же `8000` на котором работает приложение.
+
+Заходим на сервер, устанавливаем Docker (если еще не) и в терминале вводим команду выше. Скачается образ и
+запустится контейнер. В него можно зайти и посмотреть логи:
+
+```bash
+docker logs <имя контейнера> --tail 100
+```
+
+Проверьте, чтобы в нем не было ошибок подключения. А также проверьте статус туннеля в `Zero Trust` -> `Networks` ->
+`Connectors`: туннель должен быть Healthy.
+
+Последний шаг. Заходим в локальную консоль и набираем команду:
+
+```bash
+ssh -N -i <путь до SSH-ключа> -R 8000:0.0.0.0:8000 <login>@<server ip>
+```
+
+Измените первый порт на тот, что вы указывали в Cloudflare!
+
+Теперь, до тех пор пока работает ssh-туннель, все запросы будут приходить на вашу локальную машину.
+
+> **Примечание для стран, где не заблокирован Cloudflare**: вы можете выполнить первый шаг настройки доменного
+> имени и вместо использования сервера, воспользоваться дефолтной командой у себя на локальной машине:
+> ```bash
+> docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
+> ```
 
 ## 6. Возможные проблемы
 
