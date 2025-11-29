@@ -30,12 +30,12 @@ class Settings(BaseSettings):
     secret_token: str | None = None
 
     chatwoot_access_token: str = ""
+    chatwoot_base_url: str = ""
 
     environment: str = "DEVELOPMENT"
     log_level: str = "INFO"
 
-    dev_base_url: str = ""
-    prod_base_url: str = ""
+    workers: int = 1
 
     @property
     def db_url(self) -> str:
@@ -43,9 +43,3 @@ class Settings(BaseSettings):
             f"postgresql://{self.db_user}:{self.db_pass}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
-
-    @property
-    def base_cw_url(self) -> str:
-        if self.environment == "DEVELOPMENT":
-            return self.dev_base_url
-        return self.prod_base_url

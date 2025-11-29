@@ -2,9 +2,7 @@ import asyncio
 
 import uvicorn
 
-from app.di import tg_webhooks, pgmq
-
-WORKERS = 1
+from app.di import tg_webhooks, pgmq, settings
 
 
 async def prepare_app() -> None:
@@ -21,5 +19,5 @@ if __name__ == "__main__":
         port=8000,
         use_colors=True,
         loop="asyncio",
-        workers=WORKERS,
+        workers=settings.workers,
     )

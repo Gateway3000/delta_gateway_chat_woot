@@ -42,7 +42,7 @@ tg_gateway = TelegramGateway(
 registry = GatewayRegistry()
 registry.register_gateway(tg_gateway)
 
-cwc = ChatwootClient(settings.chatwoot_access_token, settings.base_cw_url)
+cwc = ChatwootClient(settings.chatwoot_access_token, settings.chatwoot_base_url)
 
 incoming_worker = IncomingWorker(pgmq, cwc, settings.incoming_queue_name, registry)
 outgoing_worker = OutgoingWorker(pgmq, settings.outgoing_queue_name, registry)
