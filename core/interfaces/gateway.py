@@ -15,6 +15,10 @@ class IGateway(ABC):
     channel: Literal["telegram", "signal", "whatsapp", "telephony", "viber"]
 
     @abstractmethod
+    async def on_prefork(self) -> None:
+        """Performs actions before the process fork."""
+
+    @abstractmethod
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
         """Retrieves the route information associated with a given connector ID."""
 

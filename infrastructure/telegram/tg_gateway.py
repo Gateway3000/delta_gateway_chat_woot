@@ -7,6 +7,7 @@ from infrastructure.telegram.tg_bot_manager import TelegramBotManager
 from infrastructure.telegram.tg_io_processor import TelegramIOProcessor
 from infrastructure.telegram.tg_routing import TelegramRouting
 from infrastructure.telegram.tg_transport import TelegramTransport
+from infrastructure.telegram.tg_wh_manager import TelegramWebhookManager
 
 
 class TelegramGateway(IGateway):
@@ -19,12 +20,17 @@ class TelegramGateway(IGateway):
         transport: TelegramTransport,
         io_processor: TelegramIOProcessor,
         adapter: TelegramAdapter,
+        wh_manager: TelegramWebhookManager,
     ) -> None:
         self._bot_manager = bot_manager
         self._routing = routing
         self._transport = transport
         self._io_processor = io_processor
         self._adapter = adapter
+        self._wh_manager = wh_manager
+
+    async def on_prefork(self) -> None:
+        await self._wh_manager.set_wh()
 
     async def on_startup(self) -> None:
         pass

@@ -1,3 +1,4 @@
+import asyncio
 from importlib.metadata import entry_points
 
 import structlog
@@ -35,13 +36,43 @@ class GatewayRegistry:
         return self._gateways[channel]
 
     async def on_startup(self) -> None:
+        """Performs startup tasks for all registered gateways during FastAPI lifespan.
+
+        This method is typically used to prepare all communication channels before the
+        FastAPI application starts.
+        """
+        tasks = []
         for gateway in self._gateways.values():
+            startup_task = asyncio.create_task(gateway.on_startup())
+            tasks.append(startup_task)
             logger.info(f'Initializing gateway for channel "{gateway.channel}"...')
-            await gateway.on_startup()
+        await asyncio.gather(*tasks)
 
     async def on_shutdown(self) -> None:
+        """Performs shutdown tasks for all registered gateways during FastAPI lifespan.
+
+        This method is typically used to gracefully close all communication channels
+        when the FastAPI application is shutting down.
+        """
+        tasks = []
         for gateway in self._gateways.values():
+            shutdown_task = asyncio.create_task(gateway.on_shutdown())
+            tasks.append(shutdown_task)
             logger.info(
                 f'Initiating shutdown for gateway on channel "{gateway.channel}"...'
             )
-            await gateway.on_shutdown()
+        await asyncio.gather(*tasks)
+
+    async def on_prefork(self) -> None:
+        """Performs tasks before forking processes.
+
+        This method is typically called during the app preparation stage, just before
+        launching the FastAPI app, ensuring all communication channels are properly
+        prepared for multiprocess execution.
+        """
+        tasks = []
+        for gateway in self._gateways.values():
+            prefork_task = asyncio.create_task(gateway.on_prefork())
+            tasks.append(prefork_task)
+            logger.debug(f'Executing prefork for channel "{gateway.channel}"...')
+        await asyncio.gather(*tasks)
