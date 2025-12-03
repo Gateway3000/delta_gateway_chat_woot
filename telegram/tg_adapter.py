@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Mapping, Any
 
-from infrastructure.pydantic_models import Envelope
-from infrastructure.telegram.tg_routing import TelegramRouting
+from src.multichannel_gateway.infrastructure.pydantic_models import Envelope
+from telegram.tg_routing import TelegramRouting
 
 
 class TelegramAdapter:

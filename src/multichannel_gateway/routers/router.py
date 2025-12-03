@@ -3,8 +3,8 @@ from fastapi import HTTPException, APIRouter, status
 from fastapi.requests import Request
 from fastapi.responses import Response
 
-from app.di import registry
-from core.exceptions import (
+from src.multichannel_gateway.app.di import registry
+from src.multichannel_gateway.core.exceptions import (
     ConnectorNotFoundError,
     WrongUpdateTypeError,
     IdempotencyKeyAlreadyProcessedError,

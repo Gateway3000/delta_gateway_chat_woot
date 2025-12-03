@@ -16,13 +16,15 @@ from data.chatwoot_test_payloads import (
     CREATE_MESSAGE,
     CREATE_CONTACT,
 )
-from core.exceptions import (
+from src.multichannel_gateway.core.exceptions import (
     ContactAlreadyExistsError,
     UnauthorizedError,
     ServerError,
     ChatwootAPIError,
 )
-from infrastructure.chatwoot_client.cw_client import ChatwootClient
+from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
+    ChatwootClient,
+)
 
 
 class TestDeliverMessage:

@@ -1,4 +1,4 @@
-from app.config import BotConfig
+from src.multichannel_gateway.app.config import BotConfig
 
 
 class TelegramRouting:

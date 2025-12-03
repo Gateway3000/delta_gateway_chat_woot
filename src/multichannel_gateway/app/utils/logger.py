@@ -3,7 +3,7 @@ from typing import Any
 
 import structlog
 
-from app.di import settings
+from src.multichannel_gateway.app.di import settings
 
 RESET = "\x1b[0m"
 COLORS = {

@@ -1,13 +1,13 @@
 from typing import Any
 
-from core.interfaces.gateway import IGateway
-from infrastructure.pydantic_models import DeliveryResult
-from infrastructure.telegram.tg_adapter import TelegramAdapter
-from infrastructure.telegram.tg_bot_manager import TelegramBotManager
-from infrastructure.telegram.tg_io_processor import TelegramIOProcessor
-from infrastructure.telegram.tg_routing import TelegramRouting
-from infrastructure.telegram.tg_transport import TelegramTransport
-from infrastructure.telegram.tg_wh_manager import TelegramWebhookManager
+from src.multichannel_gateway.core.interfaces.gateway import IGateway
+from src.multichannel_gateway.infrastructure.pydantic_models import DeliveryResult
+from telegram.tg_adapter import TelegramAdapter
+from telegram.tg_bot_manager import TelegramBotManager
+from telegram.tg_io_processor import TelegramIOProcessor
+from telegram.tg_routing import TelegramRouting
+from telegram.tg_transport import TelegramTransport
+from telegram.tg_wh_manager import TelegramWebhookManager
 
 
 class TelegramGateway(IGateway):

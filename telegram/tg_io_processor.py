@@ -3,15 +3,15 @@ from typing import Any
 import structlog
 from aiogram import Bot
 
-from core.exceptions import (
+from src.multichannel_gateway.core.exceptions import (
     ConnectorNotFoundError,
     IdempotencyKeyAlreadyProcessedError,
 )
-from core.interfaces.message_queue import IMessageQueue
-from infrastructure.pydantic_models import Envelope
-from infrastructure.telegram.tg_adapter import TelegramAdapter
-from infrastructure.telegram.tg_bot_manager import TelegramBotManager
-from infrastructure.telegram.tg_transport import TelegramTransport
+from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
+from src.multichannel_gateway.infrastructure.pydantic_models import Envelope
+from telegram.tg_adapter import TelegramAdapter
+from telegram.tg_bot_manager import TelegramBotManager
+from telegram.tg_transport import TelegramTransport
 
 logger = structlog.get_logger(__name__)
 

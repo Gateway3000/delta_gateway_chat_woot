@@ -5,14 +5,17 @@ from aiogram.client.session import aiohttp
 from aiohttp import ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
-from core.exceptions import (
+from src.multichannel_gateway.infrastructure.pydantic_models import (
+    ContactInfo,
+    ContactSearchResult,
+)
+from src.multichannel_gateway.core.exceptions import (
     ContactAlreadyExistsError,
     UnauthorizedError,
     ServerError,
     ChatwootAPIError,
 )
-from core.interfaces.cw_client import IChatwootClient
-from infrastructure.pydantic_models import ContactInfo, ContactSearchResult
+from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
 
 logger = structlog.get_logger(__name__)
 

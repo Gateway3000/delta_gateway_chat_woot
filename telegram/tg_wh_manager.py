@@ -1,4 +1,4 @@
-from infrastructure.telegram.tg_bot_manager import TelegramBotManager
+from telegram.tg_bot_manager import TelegramBotManager
 
 
 class TelegramWebhookManager:

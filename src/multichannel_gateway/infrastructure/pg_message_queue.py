@@ -8,9 +8,9 @@ import structlog
 import tenacity
 from asyncpg import Connection
 
-from app.config import Settings
-from core.interfaces.message_queue import IMessageQueue
-from infrastructure.pg_conn_manager import ConnManager
+from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
+from src.multichannel_gateway.app.config import Settings
+from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
 
 logger = structlog.get_logger(__name__)
 

@@ -5,11 +5,10 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
-from app.di import dp, incoming_worker, outgoing_worker, registry
-from app.routes.telegram.handlers.basic_handlers import router as telegram_handler
-from app.routes.telegram.routers.router import router
-from app.utils.asyncio_policy import check_eventloop_policy
-from app.utils.logger import setup_logging
+from src.multichannel_gateway.app.di import incoming_worker, outgoing_worker, registry
+from src.multichannel_gateway.app.utils.asyncio_policy import check_eventloop_policy
+from src.multichannel_gateway.app.utils.logger import setup_logging
+from src.multichannel_gateway.routers.router import router
 
 check_eventloop_policy()
 setup_logging()
@@ -36,5 +35,3 @@ app = FastAPI(
 )
 
 app.include_router(router)
-
-dp.include_router(telegram_handler)

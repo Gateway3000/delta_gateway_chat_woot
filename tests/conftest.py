@@ -5,8 +5,16 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from app.di import incoming_worker, outgoing_worker, conn_manager, pgmq
-from infrastructure.chatwoot_client.cw_client import ChatwootClient
+
+from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
+    ChatwootClient,
+)
+from src.multichannel_gateway.app.di import (
+    incoming_worker,
+    outgoing_worker,
+    pgmq,
+    conn_manager,
+)
 
 
 @pytest_asyncio.fixture(scope="session")

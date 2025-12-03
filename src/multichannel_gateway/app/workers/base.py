@@ -5,8 +5,8 @@ from typing import Any
 
 import structlog
 
-from core.exceptions import TransientError, FatalError
-from core.interfaces.message_queue import IMessageQueue
+from src.multichannel_gateway.core.exceptions import TransientError, FatalError
+from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
 
 logger = structlog.get_logger(__name__)
 

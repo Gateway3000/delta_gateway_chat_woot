@@ -7,10 +7,11 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
-from app.workers.base import BaseWorker
-from core.interfaces.cw_client import IChatwootClient
-from core.interfaces.message_queue import IMessageQueue
-from infrastructure.registry import GatewayRegistry
+from src.multichannel_gateway.app.workers.base import BaseWorker
+from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
+
+from src.multichannel_gateway.infrastructure.registry import GatewayRegistry
+from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
 
 logger = structlog.get_logger(__name__)
 

@@ -1,10 +1,10 @@
 **
 
-!app/
+!src/multichannel_gateway/app/
 !chatwoot_client/
 !chatwoot_spec/
-!core/
-!infrastructure/
+!src/multichannel_gateway/core/
+!src/multichannel_gateway/infrastructure/
 !Makefile
 !pyproject.toml
 !setup.cfg

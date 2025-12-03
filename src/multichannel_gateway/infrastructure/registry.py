@@ -3,7 +3,7 @@ from importlib.metadata import entry_points
 
 import structlog
 
-from core.interfaces.gateway import IGateway
+from src.multichannel_gateway.core.interfaces.gateway import IGateway
 
 logger = structlog.get_logger(__name__)
 

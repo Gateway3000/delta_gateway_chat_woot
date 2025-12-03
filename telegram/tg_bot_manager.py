@@ -1,7 +1,7 @@
 import structlog
 from aiogram import Bot
 
-from app.config import BotConfig
+from src.multichannel_gateway.app.config import BotConfig
 
 logger = structlog.get_logger(__name__)
 

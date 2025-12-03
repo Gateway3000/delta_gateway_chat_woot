@@ -6,8 +6,8 @@ import asyncpg
 import pytest
 from httpx import AsyncClient, ASGITransport
 
-from app.app import app
-from app.di import settings
+from src.multichannel_gateway.app.app import app
+from src.multichannel_gateway.app.di import settings
 
 
 @pytest.mark.order(1)
@@ -41,7 +41,7 @@ async def test_telegram_chatwoot(
         mock_feed_update,
     )
     monkeypatch.setattr(
-        "infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
+        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
         mock_deliver_message,
     )
 

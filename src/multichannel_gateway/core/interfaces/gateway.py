@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from infrastructure.pydantic_models import DeliveryResult
+from src.multichannel_gateway.infrastructure.pydantic_models import DeliveryResult
 
 
 class IGateway(ABC):

@@ -1,5 +1,5 @@
 [project]
-name = "ChannelGateway"
+name = "multichannel-gateway"
 version = "1.0.0"
 description = "Channel Gateway for Helpline Platform"
 requires-python = "==3.12.*"
