@@ -14,7 +14,14 @@ from src.multichannel_gateway.app.di import (
     outgoing_worker,
     pgmq,
     conn_manager,
+    registry,
 )
+from telegram.dependencies import telegram_gateway
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def register_gateway() -> None:
+    registry.register_gateway(telegram_gateway)
 
 
 @pytest_asyncio.fixture(scope="session")
