@@ -32,9 +32,6 @@ class TelegramGateway(IGateway):
     async def on_prefork(self) -> None:
         await self._wh_manager.set_wh()
 
-    async def on_startup(self) -> None:
-        pass
-
     async def on_shutdown(self) -> None:
         await self._bot_manager.close_sessions()
 

@@ -14,9 +14,9 @@ class IGateway(ABC):
 
     channel: Literal["telegram", "signal", "whatsapp", "telephony", "viber"]
 
-    @abstractmethod
     async def on_prefork(self) -> None:
         """Performs actions before the process fork."""
+        pass
 
     @abstractmethod
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
@@ -42,10 +42,10 @@ class IGateway(ABC):
     ) -> None:
         """Processes an outbound message originating from Chatwoot."""
 
-    @abstractmethod
     async def on_startup(self) -> None:
         """Called when the application starts up."""
+        pass
 
-    @abstractmethod
     async def on_shutdown(self) -> None:
         """Called when the application shuts down."""
+        pass
