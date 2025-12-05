@@ -20,7 +20,7 @@ docker-compose up --build -d
 
 ### For Development
 
-For development, use the [dev_main.py](dev_main.py) script.
+To run the project, use [main.py](main.py). For development, the variable `ENVIRONMENT` should be set to "DEVELOPMENT".
 First, install all dependencies (including dev and extras):
 
 ```bash
@@ -30,7 +30,7 @@ uv sync --all-extras --dev
 Then start the app:
 
 ```bash
-python dev_main.py
+python main.py
 ```
 
 ## 2. Environment Variables
@@ -46,7 +46,7 @@ python dev_main.py
 | **INCOMING_QUEUE_NAME**<br>**OUTGOING_QUEUE_NAME**  | Database queue table names. Change only if absolutely necessary.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **WH_DOMAIN**                                       | This app requires a webhook to work. You can use [Cloudflared](https://github.com/cloudflare/cloudflared) (see below), [Serveo](https://serveo.net/), [localhost.run](https://localhost.run/). Or Ngrok (where available).                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **ENVIRONMENT**                                     | `DEVELOPMENT` or `PRODUCTION`. Overrides certain internal defaults.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **DEV_BASE_URL**<br>**PROD_BASE_URL**               | Base URL of your Chatwoot instance (used depending on `ENVIRONMENT`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **CHATWOOT_BASE_URL**                               | Base URL of your Chatwoot instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **LOG_LEVEL**                                       | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ## 3. Testing
@@ -190,7 +190,8 @@ docker-compose up --build -d
 
 ### Для разработки
 
-Для разработки используйте скрипт [dev_main.py](dev_main.py).
+Для запуска проекта, используйте [main.py](main.py). Для разработки, значение переменной `ENVIRONMENT` должно быть
+равно "DEVELOPMENT".
 Перед запуском создайте виртуальное окружение:
 
 ```bash
@@ -200,7 +201,7 @@ uv sync --all-extras --dev
 После этого можно запустить проект:
 
 ```bash
-python dev_main.py
+python main.py
 ```
 
 ## 2. Переменные окружения
@@ -216,7 +217,7 @@ python dev_main.py
 | **INCOMING_QUEUE_NAME**<br>**OUTGOING_QUEUE_NAME**  | Названия таблиц-очередей в базе данных. Не меняйте без крайней необходимости!                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **WH_DOMAIN**                                       | Это приложение требует вебхук для работы. Можно использовать [Cloudflared](https://github.com/cloudflare/cloudflared) (подробнее смотри ниже), [Serveo](https://serveo.net/), [localhost.run](https://localhost.run/). Или Ngrok (доступен не во всех странах).                                                                                                                                                                                                                                                                                                                                                                                     |
 | **ENVIRONMENT**                                     | Допустимые значения: `DEVELOPMENT` или `PRODUCTION`. Переопределяет некоторые переменные проекта.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **DEV_BASE_URL**<br>**PROD_BASE_URL**               | Базовые URL вашего Chatwoot (используются в зависимости от `ENVIRONMENT`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **CHATWOOT_BASE_URL**                               | Базовая URL вашего Chatwoot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **LOG_LEVEL**                                       | Уровень логирования: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## 3. Тестирование
