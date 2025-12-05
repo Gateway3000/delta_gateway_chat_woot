@@ -66,7 +66,7 @@ class CustomConsoleRenderer:
         return (
             f"{COLORS['timestamp']}{ts}{RESET} "
             f"{COLORS.get(level.lower(), '')}{level:^8}{RESET}"
-            f"{COLORS['location']}{location:<60}{RESET} "
+            f"{COLORS['location']}{location:<90}{RESET} "
             f"{COLORS['event']}{event:<40}{RESET} "
             f"{extras}"
         )

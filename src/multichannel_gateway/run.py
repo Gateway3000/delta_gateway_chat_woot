@@ -19,5 +19,6 @@ def run() -> None:
         port=8000,
         use_colors=True,
         loop="asyncio",
-        workers=settings.workers,
+        reload=settings.environment == "DEVELOPMENT",
+        workers=0 if settings.environment == "DEVELOPMENT" else settings.workers,
     )
