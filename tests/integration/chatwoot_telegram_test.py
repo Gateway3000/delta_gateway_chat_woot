@@ -7,7 +7,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from src.multichannel_gateway.app.di import settings
+from telegram.dependencies import tg_settings
 
 
 @pytest.mark.order(2)
@@ -36,7 +36,7 @@ async def test_chatwoot_telegram(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as cl:
         response = await cl.post(
-            f"/ingest/outgoing/telegram/{settings.bots_config[0].cw_account_id}/webhook",
+            f"/ingest/outgoing/telegram/{tg_settings.bots_config[0].cw_account_id}/webhook",
             json=raw_data,
         )
         await asyncio.sleep(1)
@@ -62,7 +62,7 @@ async def test_chatwoot_telegram(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as cl:
         response = await cl.post(
-            f"/ingest/outgoing/telegram/{settings.bots_config[0].cw_account_id}/webhook",
+            f"/ingest/outgoing/telegram/{tg_settings.bots_config[0].cw_account_id}/webhook",
             json=raw_data,
         )
 
