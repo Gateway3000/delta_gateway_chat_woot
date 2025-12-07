@@ -5,10 +5,7 @@ from aiogram import Dispatcher, Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import Update
 
-from src.multichannel_gateway.infrastructure.pydantic_models import (
-    Envelope,
-    DeliveryResult,
-)
+from src import DeliveryResult, Envelope
 from telegram.tg_bot_manager import TelegramBotManager
 
 

@@ -3,12 +3,13 @@ from typing import Any
 import structlog
 from aiogram import Bot
 
-from src.multichannel_gateway.core.exceptions import (
-    ConnectorNotFoundError,
+from src import (
+    PGMessageQueue,
+    Envelope,
     IdempotencyKeyAlreadyProcessedError,
+    ConnectorNotFoundError,
 )
-from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
-from src.multichannel_gateway.infrastructure.pydantic_models import Envelope
+
 from telegram.tg_adapter import TelegramAdapter
 from telegram.tg_bot_manager import TelegramBotManager
 from telegram.tg_transport import TelegramTransport
@@ -29,7 +30,7 @@ class TelegramIOProcessor:
         bot_manager: TelegramBotManager,
         transport: TelegramTransport,
         adapter: TelegramAdapter,
-        mq: IMessageQueue,
+        mq: PGMessageQueue,
         incoming_queue_name: str,
         outgoing_queue_name: str,
     ) -> None:

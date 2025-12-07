@@ -1,7 +1,7 @@
 from typing import Any
 
-from src.multichannel_gateway.core.interfaces.gateway import IGateway
-from src.multichannel_gateway.infrastructure.pydantic_models import DeliveryResult
+from src import IGateway, DeliveryResult
+
 from telegram.tg_adapter import TelegramAdapter
 from telegram.tg_bot_manager import TelegramBotManager
 from telegram.tg_io_processor import TelegramIOProcessor

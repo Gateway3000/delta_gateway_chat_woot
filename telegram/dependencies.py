@@ -1,6 +1,7 @@
 from aiogram import Dispatcher
 
-from src.multichannel_gateway.app.di import settings, pgmq
+from src import pgmq
+from src.multichannel_gateway.app.di import settings
 from telegram.handlers.basic_handlers import router as telegram_handler
 from telegram.tg_adapter import TelegramAdapter
 from telegram.tg_bot_manager import TelegramBotManager
