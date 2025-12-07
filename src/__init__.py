@@ -1,3 +1,4 @@
+from .multichannel_gateway.app.config import Settings
 from .multichannel_gateway.app.di import pgmq
 from .multichannel_gateway.core.exceptions import (
     IdempotencyKeyAlreadyProcessedError,
@@ -18,6 +19,7 @@ __all__ = [
     "pgmq",
     "PGMessageQueue",
     "Envelope",
+    "Settings",
     "ConnectorNotFoundError",
     "IdempotencyKeyAlreadyProcessedError",
     "TransientError",

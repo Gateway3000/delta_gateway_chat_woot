@@ -1,15 +1,7 @@
 from dotenv import load_dotenv, find_dotenv
-from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 load_dotenv(find_dotenv(".env"))
-
-
-class BotConfig(BaseModel):
-    connector_id: str
-    bot_token: str
-    cw_account_id: str
-    cw_inbox_id: str
 
 
 class Settings(BaseSettings):
@@ -26,7 +18,6 @@ class Settings(BaseSettings):
 
     group: str = ""
 
-    bots_config: list[BotConfig] = []
     secret_token: str | None = None
 
     chatwoot_access_token: str = ""
