@@ -125,10 +125,11 @@ docker run -d \
   tunnel --no-autoupdate run --token xxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Continue with the tunnel setup. After selecting Docker, click `Next` in the bottom right corner. This will open the *
-*Route Traffic** panel, where you need to link the tunnel to your domain name. In the subdomain field, enter something
-like `mytunnel`, and select your domain. Leave the Path field empty (you can also specify a full or partial path to the
-webhook here to filter out unnecessary requests from the internet).
+Continue with the tunnel setup. After selecting Docker, click `Next` in the bottom right corner.
+This will open the **Route Traffic** panel, where you need to link the tunnel to your domain name.
+In the subdomain field, enter something like `mytunnel`, and select your domain.
+Leave the Path field empty (you can also specify a full or partial path to the webhook here to filter out
+unnecessary requests from the internet).
 
 > **Important!** In the Service -> Type field, select **HTTP**, not HTTPS! In the URL field, enter
 > `127.0.0.1:<any port above 2000>`. You can use the same `8000` that your application is running on.
