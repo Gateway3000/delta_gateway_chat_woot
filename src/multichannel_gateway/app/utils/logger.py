@@ -79,7 +79,7 @@ def setup_logging() -> None:
 
     logging.getLogger("asyncio").setLevel(logging.WARNING)
 
-    if settings.environment == "DEVELOPMENT":
+    if settings.environment == "LOCAL":
         structlog.configure(
             processors=[
                 structlog.stdlib.filter_by_level,
