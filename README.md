@@ -2,18 +2,43 @@
 
 ## 1. Running the Project
 
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
 ### Running in Docker
+
+Build the project:
+
+```bash
+docker buildx bake -f docker-bake.hcl
+```
 
 To start the project using Docker, run:
 
 ```bash
-docker-compose up --build
+# Do this only once
+echo COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml >> .env
 ```
+
+```bash
+docker compose up
+```
+> **Note**: if you are on Windows, use the following commands:
+> ```bash
+> wsl bash -lc "echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml' >> .env"
+> ```
+>
+> ```bash
+> wsl bash -lc "docker compose up"
+> ```
 
 To run in detached (background) mode:
 
 ```bash
-docker-compose up --build -d
+docker compose up -d
 ```
 
 > **Note**: When running in Docker, the application is built **without** test dependencies and some development modules.
@@ -173,18 +198,43 @@ Now, as long as the SSH tunnel is active, all requests will be forwarded to your
 
 ## 1. Запуск проекта
 
-### Запуск в Docker
-
-Для запуска проекта в Docker выполните команду:
+Скопируйте `.env.example` в `.env`:
 
 ```bash
-docker-compose up --build
+cp .env.example .env
 ```
+
+### Запуск в Docker
+
+Соберите проект:
+
+```bash
+docker buildx bake -f docker-bake.hcl
+```
+
+Для запуска проекта в Докере используйте команды:
+
+```bash
+# Сделайте это только один раз
+echo COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml >> .env
+```
+
+```bash
+docker compose up
+```
+> **Примечание**: если у вас Windows, используйте команды:
+> ```bash
+> wsl bash -lc "echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml' >> .env"
+> ```
+>
+> ```bash
+> wsl bash -lc "docker compose up"
+> ```
 
 Если хотите запустить в фоновом режиме, добавьте флаг `-d`:
 
 ```bash
-docker-compose up --build -d
+docker compose up -d
 ```
 
 > **Примечание**: При запуске в Docker приложение собирается без тестовых зависимостей и некоторых модулей.
@@ -345,6 +395,3 @@ ssh -N -i <путь до SSH-ключа> -R 8000:0.0.0.0:8000 <login>@<server ip
 3. **Именование модулей с тестами**: модули с тестами следует называть с постфиксом `test` (например, `client_test`, а
    не `test_client`). Это нужно для того, чтобы проходила проверка на корректность имён файлов в pre-commit. При этом
    сами тесты должны начинаться с префикса `test_` (например, `test_webhook`).
-
-
-

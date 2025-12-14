@@ -1,0 +1,19 @@
+networks:
+  gateway:
+    ipam:
+      config:
+        - subnet: 172.19.0.0/24
+
+services:
+  app:
+    image: ${DOCKER_REGISTRY_HOST}/channel-gateway:$DOCKER_IMAGE_VERSION
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      gateway:
+
+  db:
+    image: ${DOCKER_REGISTRY_HOST}/postgres-pgmq:$DOCKER_IMAGE_VERSION
+    container_name: db-gateway
+    networks:
+      gateway:
