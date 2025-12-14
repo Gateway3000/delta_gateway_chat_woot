@@ -1,13 +1,13 @@
 **
 
-!src/multichannel_gateway/app/
+!src/
 !chatwoot_client/
 !chatwoot_spec/
-!src/multichannel_gateway/core/
-!src/multichannel_gateway/infrastructure/
 !Makefile
 !pyproject.toml
-!setup.cfg
 !uv.lock
 !main.py
 !build
+!README.md
+!LICENSE
+!telegram

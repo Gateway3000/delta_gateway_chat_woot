@@ -2,6 +2,8 @@
 
 ## 1. Running the Project
 
+Copy `.env.example` to `.env`:
+
 ```bash
 cp .env.example .env
 ```
@@ -17,9 +19,21 @@ docker buildx bake -f docker-bake.hcl
 To start the project using Docker, run:
 
 ```bash
+# Do this only once
 echo COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml >> .env
+```
+
+```bash
 docker compose up
 ```
+> **Note**: if you are on Windows, use the following commands:
+> ```bash
+> wsl bash -lc "echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml' >> .env"
+> ```
+>
+> ```bash
+> wsl bash -lc "docker compose up"
+> ```
 
 To run in detached (background) mode:
 
@@ -184,18 +198,43 @@ Now, as long as the SSH tunnel is active, all requests will be forwarded to your
 
 ## 1. Запуск проекта
 
-### Запуск в Docker
-
-Для запуска проекта в Docker выполните команду:
+Скопируйте `.env.example` в `.env`:
 
 ```bash
-docker-compose up --build
+cp .env.example .env
 ```
+
+### Запуск в Docker
+
+Соберите проект:
+
+```bash
+docker buildx bake -f docker-bake.hcl
+```
+
+Для запуска проекта в Докере используйте команды:
+
+```bash
+# Сделайте это только один раз
+echo COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml >> .env
+```
+
+```bash
+docker compose up
+```
+> **Примечание**: если у вас Windows, используйте команды:
+> ```bash
+> wsl bash -lc "echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.local.yml' >> .env"
+> ```
+>
+> ```bash
+> wsl bash -lc "docker compose up"
+> ```
 
 Если хотите запустить в фоновом режиме, добавьте флаг `-d`:
 
 ```bash
-docker-compose up --build -d
+docker compose up -d
 ```
 
 > **Примечание**: При запуске в Docker приложение собирается без тестовых зависимостей и некоторых модулей.
