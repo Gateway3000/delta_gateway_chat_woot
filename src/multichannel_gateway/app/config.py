@@ -1,7 +1,16 @@
+from enum import Enum
+
 from dotenv import load_dotenv, find_dotenv
 from pydantic_settings import BaseSettings
 
 load_dotenv(find_dotenv(".env"))
+
+
+class Environment(str, Enum):
+    DEV = "DEV"
+    STAGE = "STAGE"
+    PROD = "PROD"
+    LOCAL = "LOCAL"
 
 
 class Settings(BaseSettings):
@@ -23,7 +32,7 @@ class Settings(BaseSettings):
     chatwoot_access_token: str = ""
     chatwoot_base_url: str = ""
 
-    environment: str = "DEVELOPMENT"
+    environment: Environment = Environment.LOCAL
     log_level: str = "INFO"
 
     workers: int = 1

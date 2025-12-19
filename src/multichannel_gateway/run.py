@@ -19,6 +19,6 @@ def run() -> None:
         port=8000,
         use_colors=True,
         loop="asyncio",
-        reload=settings.environment == "DEVELOPMENT",
-        workers=0 if settings.environment == "DEVELOPMENT" else settings.workers,
+        reload=settings.environment == "LOCAL",
+        workers=0 if settings.environment == "LOCAL" else settings.workers,
     )
