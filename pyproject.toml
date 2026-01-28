@@ -84,6 +84,3 @@ warn_redundant_casts = true
 warn_unused_configs = true
 
 disallow_subclassing_any = false
-
-[tool.mypy."third_party_libs.*"]
-ignore_missing_imports = true

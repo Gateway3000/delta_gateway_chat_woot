@@ -5,10 +5,6 @@ from aiogram.client.session import aiohttp
 from aiohttp import ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
-from src.multichannel_gateway.infrastructure.pydantic_models import (
-    ContactInfo,
-    ContactSearchResult,
-)
 from src.multichannel_gateway.core.exceptions import (
     ContactAlreadyExistsError,
     UnauthorizedError,
@@ -16,6 +12,10 @@ from src.multichannel_gateway.core.exceptions import (
     ChatwootAPIError,
 )
 from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
+from src.multichannel_gateway.infrastructure.pydantic_models import (
+    ContactInfo,
+    ContactSearchResult,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -47,9 +47,10 @@ class ChatwootClient(IChatwootClient):
         """
 
         # Step 1: Search for the contact
-        contact = await self._search_contact(account_id, identifier)
+        found_contact = await self._search_contact(account_id, identifier)
+        conversation_id: int | None
 
-        if contact is None:
+        if found_contact is None:
             # If contact does not exist, create it
             contact = await self._create_contact(
                 account_id, inbox_id, identifier, name, email, phone_number
@@ -61,12 +62,15 @@ class ChatwootClient(IChatwootClient):
         else:
             # If contact is found, try to get the conversation_id
             conversation_id = await self._get_conversation_id(
-                account_id, contact.contact_id, inbox_id
+                account_id, found_contact.contact_id, inbox_id
             )
             if conversation_id is None:
                 # If no conversation is found, create a new one
                 conversation_id = await self._create_conversation(
-                    account_id, contact.contact_id, contact.source_id, inbox_id
+                    account_id,
+                    found_contact.contact_id,
+                    found_contact.source_id,
+                    inbox_id,
                 )
 
         # Step 2: Create and send a new incoming message
@@ -112,7 +116,7 @@ class ChatwootClient(IChatwootClient):
 
     async def _get_conversation_id(
         self, account_id: int, contact_id: int, inbox_id: int
-    ) -> int:
+    ) -> int | None:
         """Retrieve the conversation ID for a contact in a given account.
         Returns conversation ID if found, otherwise None.
         """
@@ -129,6 +133,7 @@ class ChatwootClient(IChatwootClient):
         for p in payload:
             if p["inbox_id"] == inbox_id:
                 return p["id"]
+        return None
 
     async def _create_conversation(
         self, account_id: int, contact_id: int, source_id: str, inbox_id: int

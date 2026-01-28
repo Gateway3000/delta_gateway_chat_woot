@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, MutableMapping
 
 import structlog
 
@@ -32,9 +32,9 @@ class CustomConsoleRenderer:
 
     def __call__(
         self,
-        logger: structlog.BoundLogger,
+        logger: Any,
         name: str,
-        event_dict: dict[str, Any],
+        event_dict: MutableMapping[str, Any],
     ) -> str:
         ts = event_dict.pop("timestamp", "")
         level = event_dict.pop("level", "").upper()
