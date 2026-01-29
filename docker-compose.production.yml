@@ -13,7 +13,6 @@ services:
       gateway:
 
   db:
-    image: ${DOCKER_REGISTRY_HOST}/postgres-pgmq:$DOCKER_IMAGE_VERSION
     container_name: db-gateway
     networks:
       gateway:

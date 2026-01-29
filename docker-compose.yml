@@ -4,15 +4,16 @@ volumes:
 services:
   app:
     image: channel-gateway:latest
+    restart: unless-stopped
     container_name: gateway
     depends_on:
       - db
     env_file: .env
-    restart: unless-stopped
 
   db:
-    image: postgres-pgmq:latest
+    image: "ghcr.io/pgmq/pg${POSTGRES_VERSION}-pgmq:${PGMQ_VERSION}"
     restart: unless-stopped
+    container_name: db
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
