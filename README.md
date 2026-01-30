@@ -193,6 +193,8 @@ Now, as long as the SSH tunnel is active, all requests will be forwarded to your
 3. **Test module naming**. Test files must end with `_test.py` (e.g., `client_test.py`, **not** `test_client.py`) –
    required by pre-commit checks. Individual test functions must start with `test_` (e.g., `test_webhook`).
 
+4. If `buildx bake -f docker-bake.hcl` throws an error, check your Docker version. It must be 29.1.5 or later.
+
 ---
 [EN](#1-running-the-project)
 
@@ -395,3 +397,5 @@ ssh -N -i <путь до SSH-ключа> -R 8000:0.0.0.0:8000 <login>@<server ip
 3. **Именование модулей с тестами**: модули с тестами следует называть с постфиксом `test` (например, `client_test`, а
    не `test_client`). Это нужно для того, чтобы проходила проверка на корректность имён файлов в pre-commit. При этом
    сами тесты должны начинаться с префикса `test_` (например, `test_webhook`).
+
+4. Если `docker buildx bake -f docker-bake.hcl` выдает ошибку, проверьте версию Docker. Она должна быть не ниже 29.1.5
