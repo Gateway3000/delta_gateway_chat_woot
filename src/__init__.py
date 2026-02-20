@@ -11,6 +11,7 @@ from .multichannel_gateway.infrastructure.pg_message_queue import PGMessageQueue
 from .multichannel_gateway.infrastructure.pydantic_models import (
     DeliveryResult,
     Envelope,
+    SenderInfo,
 )
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "DeliveryResult",
     "pgmq",
     "PGMessageQueue",
+    "SenderInfo",
     "Envelope",
     "Settings",
     "ConnectorNotFoundError",
