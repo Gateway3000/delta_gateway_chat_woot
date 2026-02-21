@@ -9,19 +9,19 @@ description = "Channel Gateway for Helpline Platform"
 requires-python = "==3.12.*"
 readme = "README.md"
 classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.12",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
 ]
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
 dependencies = [
     "asyncpg==0.30.0",
-    "fastapi==0.116.1",
+    "fastapi==0.133.0",
     "uvicorn==0.35.0",
     "pydantic-settings==2.10.1",
     "pydantic[email]==2.11.9",
-    "aiogram==3.22",
+    "aiogram==3.25",
     "tenacity==9.1.2",
     "aiolimiter==1.2.0",
     "structlog==25.4.0",
@@ -46,6 +46,7 @@ dev = [
     "mypy==1.19.0",
     "httpx==0.28.1",
     "aioresponses==0.7.8",
+    "pysentry-rs==0.4.3",
 ]
 
 [tool.pytest.ini_options]
@@ -84,3 +85,34 @@ warn_redundant_casts = true
 warn_unused_configs = true
 
 disallow_subclassing_any = false
+
+[tool.pysentry]
+version = 1
+
+[tool.pysentry.defaults]
+fail_on = "critical"
+scope = "all"
+direct_only = false
+no_ci_detect = false
+display = "table"
+
+[tool.pysentry.resolver]
+type = "uv"
+
+[tool.pysentry.ignore]
+ids = []
+while_no_fix = []
+
+[tool.pysentry.maintenance]
+enabled = true
+forbid_archived = false
+forbid_deprecated = false
+forbid_quarantined = true
+forbid_unmaintained = false
+check_direct_only = false
+cache_ttl = 1
+
+[tool.pysentry.http]
+timeout = 120
+connect_timeout = 30
+max_retries = 3
