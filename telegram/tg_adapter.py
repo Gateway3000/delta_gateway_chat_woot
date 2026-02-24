@@ -13,7 +13,7 @@ class TelegramAdapter:
     def idempotency_key(
         sender_id: str, msg_id: str, route: Mapping[str, str], channel: str
     ) -> str:
-        return f"{channel}:{route['connector_id']}:{sender_id}:{msg_id}"
+        return f"{channel}:{route['connector_id']}:{route['bot_token'][-5:]}:{sender_id}:{msg_id}"
 
     def parse_channel_request(
         self, raw_data: dict[str, Any], connector_id: str, channel: str
