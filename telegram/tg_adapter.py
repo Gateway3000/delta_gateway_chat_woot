@@ -11,9 +11,9 @@ class TelegramAdapter:
 
     @staticmethod
     def idempotency_key(
-        sender_id: str, msg_id: str, route: Mapping[str, str], channel: str
+        sender_id: str, msg_id: str, route: Mapping[str, str], from_: str, to: str
     ) -> str:
-        return f"{channel}:{route['connector_id']}:{route['bot_token'][-5:]}:{sender_id}:{msg_id}"
+        return f"{from_}->{to}:{route['connector_id']}:{route['bot_token'][-5:]}:{sender_id}:{msg_id}"
 
     def parse_channel_request(
         self, raw_data: dict[str, Any], connector_id: str, channel: str
@@ -22,6 +22,8 @@ class TelegramAdapter:
         envelope = Envelope(
             idem_key="idempotency_key",
             channel=channel,
+            from_=channel,
+            to="chatwoot",
             connector_id=route["connector_id"],
             cw_inbox_id=route["cw_inbox_id"],
             cw_account_id=route["cw_account_id"],
@@ -31,7 +33,11 @@ class TelegramAdapter:
             ts=float(datetime.now().timestamp()),
         )
         idempotency_key = self.idempotency_key(
-            envelope.sender["external_id"], envelope.message_id, route, channel
+            envelope.sender["external_id"],
+            envelope.message_id,
+            route,
+            envelope.from_,
+            envelope.to,
         )
         envelope.idem_key = idempotency_key
         return idempotency_key, envelope
@@ -43,6 +49,8 @@ class TelegramAdapter:
         envelope = Envelope(
             idem_key="",
             channel=channel,
+            from_="chatwoot",
+            to=channel,
             connector_id=route["connector_id"],
             cw_inbox_id=str(raw_data["inbox"]["id"]),
             cw_account_id=cw_account_id,
@@ -54,7 +62,11 @@ class TelegramAdapter:
             ts=float(datetime.now().timestamp()),
         )
         idempotency_key = self.idempotency_key(
-            envelope.sender["external_id"], envelope.message_id, route, channel
+            envelope.sender["external_id"],
+            envelope.message_id,
+            route,
+            envelope.from_,
+            envelope.to,
         )
         envelope.idem_key = idempotency_key
         return idempotency_key, envelope

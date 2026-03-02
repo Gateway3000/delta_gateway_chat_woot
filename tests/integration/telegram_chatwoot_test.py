@@ -68,7 +68,7 @@ async def test_telegram_chatwoot(
     assert q_to_cw_res[0]["count"] == 0
 
     # Check that the record was put in the "processed_keys" table
-    assert processed_keys_res["key"] == "telegram:tg1:Ndf5x:1234567890:300"
+    assert processed_keys_res["key"] == "telegram->chatwoot:tg1:Ndf5x:1234567890:300"
 
     # ========== CHECK THE SECOND CALL WITH THE SAME ARGUMENTS, IT SHOULD BE PROCESSED DIFFERENTLY =========
     async with AsyncClient(

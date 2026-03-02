@@ -12,6 +12,8 @@ class Envelope(BaseModel):
 
     idem_key: str  # Unique idempotency key
     channel: str  # Channel type: "telegram", "telephony", etc.
+    from_: str  # Which channel the message came from
+    to: str  # Which channel the message was sent to
     connector_id: str  # Connector ID
     cw_inbox_id: str = ""  # Chatwoot inbox ID
     message_id: str = ""  # Unique message ID
