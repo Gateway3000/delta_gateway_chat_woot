@@ -6,10 +6,10 @@ SenderInfoKey = Literal["external_id", "name", "nickname"]
 
 
 class SenderInfo(BaseModel):
-    """Unified message format for all communication channels.
+    """Information about the message sender in a communication channel.
 
-    This model standardizes messages across different channels,
-    enabling consistent processing and routing within the system.
+    This model represents sender details extracted from various messaging platforms
+    (Telegram, telephony, etc.) and normalizes them into a unified format.
     """
 
     external_id: str | int  # Message ID in the channel

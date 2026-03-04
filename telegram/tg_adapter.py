@@ -19,18 +19,7 @@ class TelegramAdapter:
         self, raw_data: dict[str, Any], connector_id: str, channel: str
     ) -> tuple[str, Envelope]:
         route = self._routing.get_route_by_connector_id(connector_id)
-
-        message_from_info = raw_data["message"]["from"]
-        full_name_formed = (
-            f'{message_from_info.get("first_name", " ")} {message_from_info.get("last_name", " ")}'.strip()
-        )
-
-        sender_info = SenderInfo(
-            external_id=message_from_info["id"],
-            name=full_name_formed,
-            nickname=message_from_info['username'],
-        )
-
+        sender_info = self._parse_sender_info(raw_data=raw_data)
         envelope = Envelope(
             idem_key="idempotency_key",
             channel=channel,
@@ -60,8 +49,6 @@ class TelegramAdapter:
         route = self._routing.get_route_by_inbox_id(str(raw_data["inbox"]["id"]))
         sender_info = SenderInfo(
             external_id=raw_data["conversation"]["meta"]["sender"]["identifier"],
-            # name=full_name_formed, (нету)
-            # nickname=message_from_info['username'],  (нету)
         )
         envelope = Envelope(
             idem_key="",
@@ -73,9 +60,6 @@ class TelegramAdapter:
             cw_account_id=cw_account_id,
             message_id=str(raw_data["conversation"]["messages"][0]["id"]),
             sender=sender_info,
-            # sender={
-            #     "external_id": raw_data["conversation"]["meta"]["sender"]["identifier"]
-            # },
             payload={"text": raw_data["content"]},
             ts=float(datetime.now().timestamp()),
         )
@@ -88,3 +72,14 @@ class TelegramAdapter:
         )
         envelope.idem_key = idempotency_key
         return idempotency_key, envelope
+
+    @staticmethod
+    def _parse_sender_info(raw_data: dict[str, Any]) -> SenderInfo:
+        message_from_info = raw_data["message"]["from"]
+        full_name_formed = f"{message_from_info.get('first_name', ' ')} {message_from_info.get('last_name', ' ')}".strip()
+
+        return SenderInfo(
+            external_id=message_from_info["id"],
+            name=full_name_formed,
+            nickname=message_from_info.get("username", ""),
+        )

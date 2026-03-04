@@ -8,7 +8,7 @@ class IChatwootClient(ABC):
         account_id: int,
         identifier: str,
         inbox_id: int,
-        message: str,
+        content: str,
         name: str | None = None,
         email: str | None = None,
         phone_number: str | None = None,
