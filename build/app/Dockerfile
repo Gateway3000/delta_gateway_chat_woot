@@ -3,6 +3,7 @@ FROM ghcr.io/astral-sh/uv:0.9.2-python3.12-bookworm-slim AS base
 RUN apt-get update && apt-get install -y \
   curl \
   bash \
+  && apt upgrade openssl -y \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
