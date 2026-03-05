@@ -7,6 +7,7 @@ from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
 from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
 from src.multichannel_gateway.infrastructure.pg_message_queue import PGMessageQueue
 from src.multichannel_gateway.infrastructure.registry import GatewayRegistry
+from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
 
 settings: Settings = Settings()
 
@@ -14,8 +15,10 @@ conn_manager: ConnManager = ConnManager(settings.db_url)
 
 pgmq: PGMessageQueue = PGMessageQueue(settings, conn_manager)
 
+cw_session_manager: HTTPSessionManager = HTTPSessionManager()
+
 cwc: ChatwootClient = ChatwootClient(
-    settings.chatwoot_access_token, settings.chatwoot_base_url
+    settings.chatwoot_access_token, settings.chatwoot_base_url, cw_session_manager
 )
 
 registry: GatewayRegistry = GatewayRegistry()

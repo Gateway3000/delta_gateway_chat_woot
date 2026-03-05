@@ -1,10 +1,10 @@
 from typing import Literal, Any
 
 import structlog
-from aiogram.client.session import aiohttp
 from aiohttp import ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
+from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
 from src.multichannel_gateway.core.exceptions import (
     ContactAlreadyExistsError,
     UnauthorizedError,
@@ -23,13 +23,19 @@ logger = structlog.get_logger(__name__)
 class ChatwootClient(IChatwootClient):
     """Asynchronous client for interacting with the Chatwoot API."""
 
-    def __init__(self, api_access_token: str, base_url: str):
+    def __init__(
+        self,
+        api_access_token: str,
+        base_url: str,
+        cw_session_manager: HTTPSessionManager,
+    ):
         self.api_access_token = api_access_token
         self.base_url = base_url
         self._headers = {
             "Content-Type": "application/json",
             "api_access_token": self.api_access_token,
         }
+        self._cw_sm = cw_session_manager
 
     async def deliver_message(
         self,
@@ -84,10 +90,11 @@ class ChatwootClient(IChatwootClient):
         url = f"{self.base_url}/api/v1/accounts/{account_id}/contacts/search"
         params = {"q": identifier}
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=self._headers, params=params) as resp:
-                data = await self._handle_exceptions(resp)
-                self._handle_response_errors(resp, data, identifier)
+        async with self._cw_sm.session.get(
+            url, headers=self._headers, params=params
+        ) as resp:
+            data = await self._handle_exceptions(resp)
+            self._handle_response_errors(resp, data, identifier)
 
         payload = data.get("payload", [])
         if not payload:
@@ -123,10 +130,9 @@ class ChatwootClient(IChatwootClient):
 
         url = f"{self.base_url}/api/v1/accounts/{account_id}/contacts/{contact_id}/conversations"
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=self._headers) as resp:
-                data = await self._handle_exceptions(resp)
-                self._handle_response_errors(resp, data, str(contact_id))
+        async with self._cw_sm.session.get(url, headers=self._headers) as resp:
+            data = await self._handle_exceptions(resp)
+            self._handle_response_errors(resp, data, str(contact_id))
 
         payload = data.get("payload", [])
 
@@ -148,10 +154,11 @@ class ChatwootClient(IChatwootClient):
             "inbox_id": inbox_id,
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=self._headers, json=payload) as resp:
-                data = await self._handle_exceptions(resp)
-                self._handle_response_errors(resp, data, str(contact_id))
+        async with self._cw_sm.session.post(
+            url, headers=self._headers, json=payload
+        ) as resp:
+            data = await self._handle_exceptions(resp)
+            self._handle_response_errors(resp, data, str(contact_id))
 
         return data["id"]
 
@@ -175,10 +182,11 @@ class ChatwootClient(IChatwootClient):
             "phone_number": phone,
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=self._headers, json=payload) as resp:
-                data = await self._handle_exceptions(resp)
-                self._handle_response_errors(resp, data, tid)
+        async with self._cw_sm.session.post(
+            url, headers=self._headers, json=payload
+        ) as resp:
+            data = await self._handle_exceptions(resp)
+            self._handle_response_errors(resp, data, tid)
 
         contact = data["payload"]["contact"]
         contact_inbox = data["payload"]["contact_inbox"]
@@ -208,10 +216,11 @@ class ChatwootClient(IChatwootClient):
 
         payload = {"message_type": msg_type, "content": content}
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=self._headers, json=payload) as resp:
-                data = await self._handle_exceptions(resp)
-                self._handle_response_errors(resp, data, str(conversation_id))
+        async with self._cw_sm.session.post(
+            url, headers=self._headers, json=payload
+        ) as resp:
+            data = await self._handle_exceptions(resp)
+            self._handle_response_errors(resp, data, str(conversation_id))
 
     @staticmethod
     async def _handle_exceptions(resp: ClientResponse) -> dict[str, Any]:
