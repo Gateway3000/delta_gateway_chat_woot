@@ -7,6 +7,8 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
+from multichannel_gateway.core.name_generator import generate_username
+from src.multichannel_gateway.app.config import Settings
 from src.multichannel_gateway.app.workers.base import BaseWorker
 from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
 
@@ -19,12 +21,14 @@ logger = structlog.get_logger(__name__)
 class IncomingWorker(BaseWorker):
     def __init__(
         self,
+        settings: Settings,
         mq: IMessageQueue,
         cw_client: IChatwootClient,
         queue_name: str,
         gateways: GatewayRegistry,
     ):
         super().__init__(mq, queue_name)
+        self.settings = settings
         self._mq = mq
         self._queue_name = queue_name
         self._cwc = cw_client
@@ -44,6 +48,9 @@ class IncomingWorker(BaseWorker):
           - Raise `TransientError` for temporary issues.
           - Raise `FatalError` for non-retryable 4xx responses.
         """
+        name = generate_username()[0]
+        if not self.settings.anonymize_users and message["sender"]["name"]:
+            name = message["sender"]["name"]
 
         tid = message["sender"]["external_id"]
         msg = message["payload"]["text"]
@@ -53,5 +60,11 @@ class IncomingWorker(BaseWorker):
         gw = self._gateways.get_gateway(channel)
         route = gw.get_route_by_connector_id(connector_id)
         cw_inbox_id = route["cw_inbox_id"]
-        await self._cwc.deliver_message(cw_account_id, str(tid), int(cw_inbox_id), msg)
+        await self._cwc.deliver_message(
+            account_id=cw_account_id,
+            identifier=str(tid),
+            inbox_id=int(cw_inbox_id),
+            content=msg,
+            name=name,
+        )
         logger.debug(f"[IncomingWorker] Processing: {message}")

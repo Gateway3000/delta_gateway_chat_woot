@@ -24,7 +24,7 @@ cwc: ChatwootClient = ChatwootClient(
 registry: GatewayRegistry = GatewayRegistry()
 
 incoming_worker: IncomingWorker = IncomingWorker(
-    pgmq, cwc, settings.incoming_queue_name, registry
+    settings, pgmq, cwc, settings.incoming_queue_name, registry
 )
 outgoing_worker: OutgoingWorker = OutgoingWorker(
     pgmq, settings.outgoing_queue_name, registry

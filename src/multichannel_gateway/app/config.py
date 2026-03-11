@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     chatwoot_access_token: str = ""
     chatwoot_base_url: str = ""
 
+    anonymize_users: bool = False
+
     environment: Environment = Environment.LOCAL
     log_level: str = "INFO"
 

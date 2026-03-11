@@ -1,6 +1,23 @@
-from typing import Mapping, Any
+from typing import Mapping, Any, Literal
 
 from pydantic import BaseModel
+
+SenderInfoKey = Literal["external_id", "name", "nickname"]
+
+
+class SenderInfo(BaseModel):
+    """Information about the message sender in a communication channel.
+
+    This model represents sender details extracted from various messaging platforms
+    (Telegram, telephony, etc.) and normalizes them into a unified format.
+    """
+
+    external_id: str | int  # Message ID in the channel
+    name: str | None = None  # Users name
+    nickname: str | None = None  # Users nickname
+
+    def __getitem__(self, key: SenderInfoKey) -> Any:
+        return getattr(self, key)
 
 
 class Envelope(BaseModel):
@@ -18,7 +35,7 @@ class Envelope(BaseModel):
     cw_inbox_id: str = ""  # Chatwoot inbox ID
     message_id: str = ""  # Unique message ID
     cw_account_id: str  # Chatwoot account ID
-    sender: Mapping[str, Any]  # Information about the sender
+    sender: SenderInfo  # Information about the sender
     payload: Mapping[str, Any]  # Message content
     ts: float  # Timestamp
 
