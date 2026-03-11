@@ -15,6 +15,7 @@ from src.multichannel_gateway.app.di import (
     pgmq,
     conn_manager,
     registry,
+    cw_session_manager,
 )
 from telegram.dependencies import telegram_gateway
 
@@ -25,7 +26,8 @@ async def register_gateway() -> None:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def start_workers() -> None:
+async def start_session_and_workers() -> None:
+    await cw_session_manager.start()
     asyncio.create_task(incoming_worker.run())
     asyncio.create_task(outgoing_worker.run())
 
@@ -58,5 +60,7 @@ async def truncate_all_tables(conn: Any) -> None:
 @pytest.fixture
 def client() -> ChatwootClient:
     return ChatwootClient(
-        api_access_token="test-token", base_url="https://chatwoot.example.com"
+        api_access_token="test-token",
+        base_url="https://chatwoot.example.com",
+        cw_session_manager=cw_session_manager,
     )

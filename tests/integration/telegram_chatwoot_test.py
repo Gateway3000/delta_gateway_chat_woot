@@ -14,7 +14,7 @@ from telegram.dependencies import tg_settings
 @pytest.mark.asyncio(loop_scope="session")
 async def test_telegram_chatwoot(
     monkeypatch: pytest.MonkeyPatch,
-    start_workers: tuple[asyncio.Task[Any], asyncio.Task[Any]],
+    start_session_and_workers: tuple[asyncio.Task[Any], asyncio.Task[Any]],
     get_db_pool: asyncpg.Pool,
 ) -> None:
     raw_data = {
