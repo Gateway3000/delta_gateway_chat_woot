@@ -8,7 +8,7 @@ from multichannel_gateway.app.config import TelemetrySettings
 
 
 def setup_sentry(settings: TelemetrySettings) -> None:
-    if not settings.sentry_dsn:
+    if not settings.otel_enabled or not settings.sentry_dsn:
         return
 
     sentry_sdk.init(
