@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Any
 
 
 class IMessageQueue(ABC):
     @abstractmethod
-    async def send(self, queue_name: str, payload: str) -> None: ...
+    async def send(self, queue_name: str, payload: Mapping[str, Any] | str) -> None: ...
 
     @abstractmethod
     async def read(

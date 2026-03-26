@@ -15,6 +15,9 @@ from src.multichannel_gateway.infrastructure.telemetry.helpers import (
     mark_span_ok,
     set_span_attributes,
 )
+from src.multichannel_gateway.infrastructure.telemetry.propagation import (
+    extract_trace_context,
+)
 from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
 logger = structlog.get_logger(__name__)
@@ -71,43 +74,29 @@ class BaseWorker:
 
     async def _safe_read_queue(self) -> list[dict[str, Any]]:
         """Read messages from queue with error handling."""
-        with tracer.start_as_current_span("worker.queue.read") as span:
-            set_span_attributes(
-                span,
-                {
-                    "messaging.system": "pgmq",
-                    "messaging.destination.name": self._queue_name,
-                    "messaging.batch.message_count_limit": self._message_limit,
-                    "messaging.consumer.visibility_timeout": self._vt,
-                    "worker.name": self._worker_name,
-                },
+        try:
+            messages = await self._mq.read(
+                self._queue_name,
+                vt=self._vt,
+                message_limit=self._message_limit,
             )
-            try:
-                messages = await self._mq.read(
-                    self._queue_name,
-                    vt=self._vt,
-                    message_limit=self._message_limit,
-                )
-                span.set_attribute("messaging.batch.message_count", len(messages))
-                if messages:
-                    logger.debug(
-                        "Messages received",
-                        worker=self._worker_name,
-                        queue=self._queue_name,
-                        count=len(messages),
-                    )
-                mark_span_ok(span)
-                return messages
-            except Exception as exc:
-                mark_span_error(span, exc)
-                logger.error(
-                    "Queue reading error",
+            if messages:
+                logger.debug(
+                    "Messages received",
                     worker=self._worker_name,
                     queue=self._queue_name,
-                    error=repr(exc),
+                    count=len(messages),
                 )
-                await asyncio.sleep(self._read_to)
-                return []
+            return messages
+        except Exception as exc:
+            logger.error(
+                "Queue reading error",
+                worker=self._worker_name,
+                queue=self._queue_name,
+                error=repr(exc),
+            )
+            await asyncio.sleep(self._read_to)
+            return []
 
     async def _handle_no_messages(self) -> None:
         """Handle empty queue case (wait for notification)."""
@@ -173,22 +162,51 @@ class BaseWorker:
         payload = msg["message"]
         attempts = msg.get("read_ct", 0)
 
+        try:
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            else:
+                raise ValueError("payload must be a string")
+
+            if not isinstance(payload, dict):
+                raise ValueError("payload must decode to a JSON object")
+
+            parent_context, payload = extract_trace_context(payload)
+        except Exception as exc:
+            with tracer.start_as_current_span(
+                "worker.message.process", kind=SpanKind.CONSUMER
+            ) as span:
+                set_span_attributes(
+                    span,
+                    build_worker_message_attributes(
+                        self._worker_name, self._queue_name, msg_id, attempts
+                    ),
+                )
+                mark_span_error(span, exc)
+            raise
+
         with tracer.start_as_current_span(
-            "worker.message.process", kind=SpanKind.CONSUMER
-        ) as span:
-            set_span_attributes(
-                span,
-                build_worker_message_attributes(
-                    self._worker_name, self._queue_name, msg_id, attempts
-                ),
+            "worker.queue.read",
+            kind=SpanKind.CONSUMER,
+            context=parent_context,
+        ) as read_span:
+            read_attributes = build_worker_message_attributes(
+                self._worker_name,
+                self._queue_name,
+                msg_id,
+                attempts,
+                payload,
+            )
+            read_attributes["messaging.operation"] = "receive"
+            set_span_attributes(read_span, read_attributes)
+            read_span.set_attribute(
+                "messaging.trace_context.propagated",
+                parent_context is not None,
             )
 
-            try:
-                if isinstance(payload, str):
-                    payload = json.loads(payload)
-                else:
-                    raise ValueError("payload must be a string")
-
+            with tracer.start_as_current_span(
+                "worker.message.process", kind=SpanKind.INTERNAL
+            ) as span:
                 set_span_attributes(
                     span,
                     build_worker_message_attributes(
@@ -199,17 +217,22 @@ class BaseWorker:
                         payload,
                     ),
                 )
-                outcome, exc = await self._handle_with_retries(
-                    msg_id, payload, attempts
-                )
-                span.set_attribute("worker.message.outcome", outcome)
-                if exc is not None:
+
+                try:
+                    outcome, handled_error = await self._handle_with_retries(
+                        msg_id, payload, attempts
+                    )
+                    span.set_attribute("worker.message.outcome", outcome)
+                    if handled_error is not None:
+                        mark_span_error(span, handled_error)
+                        mark_span_error(read_span, handled_error)
+                    else:
+                        mark_span_ok(span)
+                        mark_span_ok(read_span)
+                except Exception as exc:
                     mark_span_error(span, exc)
-                else:
-                    mark_span_ok(span)
-            except Exception as exc:
-                mark_span_error(span, exc)
-                raise
+                    mark_span_error(read_span, exc)
+                    raise
 
     async def _handle_with_retries(
         self, msg_id: int, payload: dict[str, Any], attempts: int

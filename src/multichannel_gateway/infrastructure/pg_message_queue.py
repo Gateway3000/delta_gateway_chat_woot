@@ -1,5 +1,7 @@
 import asyncio
 import contextlib
+import json
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,6 +18,9 @@ from src.multichannel_gateway.infrastructure.telemetry.helpers import (
     mark_span_error,
     mark_span_ok,
     set_span_attributes,
+)
+from src.multichannel_gateway.infrastructure.telemetry.propagation import (
+    inject_trace_context,
 )
 from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
@@ -70,7 +75,7 @@ class PGMessageQueue(IMessageQueue):
 
         logger.info("Tables and extensions ensured.")
 
-    async def send(self, queue_name: str, payload: str) -> None:
+    async def send(self, queue_name: str, payload: Mapping[str, Any] | str) -> None:
         """Sends a message to the PG queue."""
         with tracer.start_as_current_span("pgmq.send", kind=SpanKind.CLIENT) as span:
             set_span_attributes(
@@ -82,6 +87,15 @@ class PGMessageQueue(IMessageQueue):
                 },
             )
             try:
+                if isinstance(payload, str):
+                    payload_dict = json.loads(payload)
+                    if not isinstance(payload_dict, dict):
+                        raise ValueError("payload must decode to a JSON object")
+                else:
+                    payload_dict = dict(payload)
+
+                payload = json.dumps(inject_trace_context(payload_dict))
+
                 pool = await self._conn_manager.get_pg_pool()
                 query = "SELECT pgmq.send($1, $2::jsonb)"
                 async with pool.acquire() as conn:
@@ -102,30 +116,13 @@ class PGMessageQueue(IMessageQueue):
         self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]:
         """Reads messages from the queue and makes them invisible for `vt` seconds."""
-        with tracer.start_as_current_span("pgmq.read", kind=SpanKind.CLIENT) as span:
-            set_span_attributes(
-                span,
-                {
-                    "messaging.system": "pgmq",
-                    "messaging.destination.name": queue_name,
-                    "messaging.operation": "receive",
-                    "messaging.batch.message_count_limit": message_limit,
-                    "messaging.consumer.visibility_timeout": vt,
-                },
-            )
-            try:
-                pool = await self._conn_manager.get_pg_pool()
-                query = "SELECT * FROM pgmq.read($1::TEXT, $2::INT, $3::INT)"
-                async with pool.acquire() as conn:
-                    rows = await conn.fetch(query, queue_name, vt, message_limit)
-                    messages = [dict(r) for r in rows]
-                span.set_attribute("messaging.batch.message_count", len(messages))
-                logger.debug("Messages read", queue=queue_name, count=len(messages))
-                mark_span_ok(span)
-                return messages
-            except Exception as exc:
-                mark_span_error(span, exc)
-                raise
+        pool = await self._conn_manager.get_pg_pool()
+        query = "SELECT * FROM pgmq.read($1::TEXT, $2::INT, $3::INT)"
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(query, queue_name, vt, message_limit)
+            messages = [dict(r) for r in rows]
+        logger.debug("Messages read", queue=queue_name, count=len(messages))
+        return messages
 
     async def delete(self, queue_name: str, msg_id: int) -> None:
         """Deletes processed messages from the queue."""
