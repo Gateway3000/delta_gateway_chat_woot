@@ -4,7 +4,7 @@ import pytest
 from aiohttp import ContentTypeError
 from aioresponses import aioresponses
 
-from data.chatwoot_test_payloads import (
+from tests.data.chatwoot_test_payloads import (
     BASE_URL,
     ACCOUNT_ID,
     INBOX_ID,
