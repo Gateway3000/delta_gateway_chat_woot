@@ -7,12 +7,20 @@ import asyncpg
 import structlog
 import tenacity
 from asyncpg import Connection
+from opentelemetry.trace import SpanKind
 
 from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
 from src.multichannel_gateway.app.config import Settings
 from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
+from src.multichannel_gateway.infrastructure.telemetry.helpers import (
+    mark_span_error,
+    mark_span_ok,
+    set_span_attributes,
+)
+from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
 logger = structlog.get_logger(__name__)
+tracer = get_tracer(__name__)
 
 
 class PGMessageQueue(IMessageQueue):
@@ -64,12 +72,25 @@ class PGMessageQueue(IMessageQueue):
 
     async def send(self, queue_name: str, payload: str) -> None:
         """Sends a message to the PG queue."""
-
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT pgmq.send($1, $2::jsonb)"
-        async with pool.acquire() as conn:
-            await conn.execute(query, queue_name, payload)
-        logger.debug("Message sent", queue=queue_name)
+        with tracer.start_as_current_span("pgmq.send", kind=SpanKind.CLIENT) as span:
+            set_span_attributes(
+                span,
+                {
+                    "messaging.system": "pgmq",
+                    "messaging.destination.name": queue_name,
+                    "messaging.operation": "send",
+                },
+            )
+            try:
+                pool = await self._conn_manager.get_pg_pool()
+                query = "SELECT pgmq.send($1, $2::jsonb)"
+                async with pool.acquire() as conn:
+                    await conn.execute(query, queue_name, payload)
+                logger.debug("Message sent", queue=queue_name)
+                mark_span_ok(span)
+            except Exception as exc:
+                mark_span_error(span, exc)
+                raise
 
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=10, max=600),
@@ -81,54 +102,118 @@ class PGMessageQueue(IMessageQueue):
         self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]:
         """Reads messages from the queue and makes them invisible for `vt` seconds."""
-
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT * FROM pgmq.read($1::text, $2::int, $3::int)"
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(query, queue_name, vt, message_limit)
-            messages = [dict(r) for r in rows]
-        logger.debug("Messages read", queue=queue_name, count=len(messages))
-        return messages
+        with tracer.start_as_current_span("pgmq.read", kind=SpanKind.CLIENT) as span:
+            set_span_attributes(
+                span,
+                {
+                    "messaging.system": "pgmq",
+                    "messaging.destination.name": queue_name,
+                    "messaging.operation": "receive",
+                    "messaging.batch.message_count_limit": message_limit,
+                    "messaging.consumer.visibility_timeout": vt,
+                },
+            )
+            try:
+                pool = await self._conn_manager.get_pg_pool()
+                query = "SELECT * FROM pgmq.read($1::TEXT, $2::INT, $3::INT)"
+                async with pool.acquire() as conn:
+                    rows = await conn.fetch(query, queue_name, vt, message_limit)
+                    messages = [dict(r) for r in rows]
+                span.set_attribute("messaging.batch.message_count", len(messages))
+                logger.debug("Messages read", queue=queue_name, count=len(messages))
+                mark_span_ok(span)
+                return messages
+            except Exception as exc:
+                mark_span_error(span, exc)
+                raise
 
     async def delete(self, queue_name: str, msg_id: int) -> None:
         """Deletes processed messages from the queue."""
-
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT pgmq.delete($1::text, $2::bigint)"
-        async with pool.acquire() as conn:
-            await conn.execute(query, queue_name, msg_id)
-        logger.debug("Message deleted", queue=queue_name, msg_id=msg_id)
+        with tracer.start_as_current_span("pgmq.delete", kind=SpanKind.CLIENT) as span:
+            set_span_attributes(
+                span,
+                {
+                    "messaging.system": "pgmq",
+                    "messaging.destination.name": queue_name,
+                    "messaging.message.id": msg_id,
+                    "messaging.operation": "settle",
+                    "messaging.operation.type": "delete",
+                },
+            )
+            try:
+                pool = await self._conn_manager.get_pg_pool()
+                query = "SELECT pgmq.delete($1::text, $2::bigint)"
+                async with pool.acquire() as conn:
+                    await conn.execute(query, queue_name, msg_id)
+                logger.debug("Message deleted", queue=queue_name, msg_id=msg_id)
+                mark_span_ok(span)
+            except Exception as exc:
+                mark_span_error(span, exc)
+                raise
 
     async def archive(self, queue_name: str, msg_id: int) -> None:
         """Archives a message from the queue."""
-
-        logger.warning("Archiving message", queue=queue_name, msg_id=msg_id)
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT pgmq.archive($1::text, $2::bigint)"
-        async with pool.acquire() as conn:
-            await conn.execute(query, queue_name, msg_id)
-        logger.debug("Message archived", queue=queue_name, msg_id=msg_id)
+        with tracer.start_as_current_span("pgmq.archive", kind=SpanKind.CLIENT) as span:
+            set_span_attributes(
+                span,
+                {
+                    "messaging.system": "pgmq",
+                    "messaging.destination.name": queue_name,
+                    "messaging.message.id": msg_id,
+                    "messaging.operation": "settle",
+                    "messaging.operation.type": "archive",
+                },
+            )
+            try:
+                logger.warning("Archiving message", queue=queue_name, msg_id=msg_id)
+                pool = await self._conn_manager.get_pg_pool()
+                query = "SELECT pgmq.archive($1::text, $2::bigint)"
+                async with pool.acquire() as conn:
+                    await conn.execute(query, queue_name, msg_id)
+                logger.debug("Message archived", queue=queue_name, msg_id=msg_id)
+                mark_span_ok(span)
+            except Exception as exc:
+                mark_span_error(span, exc)
+                raise
 
     async def set_vt(self, queue_name: str, msg_id: Any, delay_seconds: float) -> None:
         """Updates the visibility timeout (VT) of a message."""
+        with tracer.start_as_current_span("pgmq.set_vt", kind=SpanKind.CLIENT) as span:
+            if delay_seconds <= 0:
+                delay_seconds = 1
 
-        if delay_seconds <= 0:
-            delay_seconds = 1
+            vt_seconds = int(delay_seconds)
+            set_span_attributes(
+                span,
+                {
+                    "messaging.system": "pgmq",
+                    "messaging.destination.name": queue_name,
+                    "messaging.message.id": msg_id,
+                    "messaging.operation": "settle",
+                    "messaging.operation.type": "set_visibility_timeout",
+                    "messaging.consumer.visibility_timeout": vt_seconds,
+                },
+            )
+            try:
+                logger.debug(
+                    "Setting new VT", queue=queue_name, msg_id=msg_id, vt=vt_seconds
+                )
 
-        vt_seconds = int(delay_seconds)
-        logger.debug("Setting new VT", queue=queue_name, msg_id=msg_id, vt=vt_seconds)
+                pool = await self._conn_manager.get_pg_pool()
+                query = "SELECT pgmq.set_vt($1::text, $2::bigint, $3::int)"
+                async with pool.acquire() as conn:
+                    await conn.execute(query, queue_name, msg_id, vt_seconds)
 
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT pgmq.set_vt($1::text, $2::bigint, $3::int)"
-        async with pool.acquire() as conn:
-            await conn.execute(query, queue_name, msg_id, vt_seconds)
-
-        logger.debug(
-            "VT updated",
-            queue=queue_name,
-            msg_id=msg_id,
-            vt_seconds=vt_seconds,
-        )
+                logger.debug(
+                    "VT updated",
+                    queue=queue_name,
+                    msg_id=msg_id,
+                    vt_seconds=vt_seconds,
+                )
+                mark_span_ok(span)
+            except Exception as exc:
+                mark_span_error(span, exc)
+                raise
 
     async def wait_for_notification(
         self, queue_name: str, timeout: float
@@ -145,7 +230,10 @@ class PGMessageQueue(IMessageQueue):
             channel_name = f"pgmq.q_{queue_name}.INSERT"
 
             def set_event(
-                _conn: Connection, _pid: int, _channel: str, _payload: str | None
+                _conn: Connection,
+                _pid: int,
+                _channel: str,
+                _payload: str | None,
             ) -> None:
                 if _channel == channel_name:
                     self._event.set()

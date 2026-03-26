@@ -31,6 +31,11 @@ dependencies = [
     "urllib3==2.6.3",
     "aiohttp-retry==2.9.1",
     "pre-commit==4.5.0",
+    "opentelemetry-distro==0.61b0",
+    "opentelemetry-exporter-otlp==1.40.0",
+    "opentelemetry-instrumentation-fastapi==0.61b0",
+    "opentelemetry-sdk==1.40.0",
+    "sentry-sdk==2.56.0",
 ]
 
 [dependency-groups]
