@@ -13,9 +13,23 @@ class IdempotencyKeyAlreadyProcessedError(Exception):
 class TransientError(Exception):
     """A temporary error that can be retried later."""
 
-    def __init__(self, message: str = "", *, retry_after: float | None = None):
+    def __init__(
+        self,
+        message: str = "",
+        max_transient_attempts: int = 10,
+        retry_delay_seconds: int = 600,
+    ):
         super().__init__(message)
-        self.retry_after = retry_after  # seconds
+        self._max_transient_attempts = max_transient_attempts
+        self._retry_delay_seconds = retry_delay_seconds
+
+    @property
+    def max_transient_attempts(self) -> int:
+        return self._max_transient_attempts
+
+    @property
+    def retry_delay_seconds(self) -> int:
+        return self._retry_delay_seconds
 
 
 class RateLimitError(Exception):
@@ -24,19 +38,3 @@ class RateLimitError(Exception):
 
 class FatalError(Exception):
     """An error for which the message should be sent to the DLQ or archived."""
-
-
-class ChatwootAPIError(Exception):
-    """Base exception for Chatwoot API errors."""
-
-
-class ContactAlreadyExistsError(ChatwootAPIError):
-    """Raised when a contact with the given identifier already exists."""
-
-
-class UnauthorizedError(ChatwootAPIError):
-    """Raised when API authentication fails (HTTP 401)."""
-
-
-class ServerError(ChatwootAPIError):
-    """Raised when Chatwoot returns a 5xx server error."""

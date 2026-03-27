@@ -1,16 +1,12 @@
+import asyncio
 from typing import Literal, Any
 
 import structlog
-from aiohttp import ClientResponse
+from aiohttp import ClientError, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 
 from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
-from src.multichannel_gateway.core.exceptions import (
-    ContactAlreadyExistsError,
-    UnauthorizedError,
-    ServerError,
-    ChatwootAPIError,
-)
+from src.multichannel_gateway.core.exceptions import FatalError, TransientError
 from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
 from src.multichannel_gateway.infrastructure.pydantic_models import (
     ContactInfo,
@@ -90,12 +86,12 @@ class ChatwootClient(IChatwootClient):
         url = f"{self.base_url}/api/v1/accounts/{account_id}/contacts/search"
         params = {"q": identifier}
 
-        async with self._cw_sm.session.get(
-            url, headers=self._headers, params=params
-        ) as resp:
-            data = await self._handle_exceptions(resp)
-            self._handle_response_errors(resp, data, identifier)
-
+        data = await self._request(
+            "GET",
+            url,
+            tid=identifier,
+            params=params,
+        )
         payload = data.get("payload", [])
         if not payload:
             return None
@@ -130,9 +126,11 @@ class ChatwootClient(IChatwootClient):
 
         url = f"{self.base_url}/api/v1/accounts/{account_id}/contacts/{contact_id}/conversations"
 
-        async with self._cw_sm.session.get(url, headers=self._headers) as resp:
-            data = await self._handle_exceptions(resp)
-            self._handle_response_errors(resp, data, str(contact_id))
+        data = await self._request(
+            "GET",
+            url,
+            tid=str(contact_id),
+        )
 
         payload = data.get("payload", [])
 
@@ -154,11 +152,12 @@ class ChatwootClient(IChatwootClient):
             "inbox_id": inbox_id,
         }
 
-        async with self._cw_sm.session.post(
-            url, headers=self._headers, json=payload
-        ) as resp:
-            data = await self._handle_exceptions(resp)
-            self._handle_response_errors(resp, data, str(contact_id))
+        data = await self._request(
+            "POST",
+            url,
+            tid=str(contact_id),
+            json=payload,
+        )
 
         return data["id"]
 
@@ -182,11 +181,12 @@ class ChatwootClient(IChatwootClient):
             "phone_number": phone,
         }
 
-        async with self._cw_sm.session.post(
-            url, headers=self._headers, json=payload
-        ) as resp:
-            data = await self._handle_exceptions(resp)
-            self._handle_response_errors(resp, data, tid)
+        data = await self._request(
+            "POST",
+            url,
+            tid=tid,
+            json=payload,
+        )
 
         contact = data["payload"]["contact"]
         contact_inbox = data["payload"]["contact_inbox"]
@@ -216,21 +216,23 @@ class ChatwootClient(IChatwootClient):
 
         payload = {"message_type": msg_type, "content": content}
 
-        async with self._cw_sm.session.post(
-            url, headers=self._headers, json=payload
-        ) as resp:
-            data = await self._handle_exceptions(resp)
-            self._handle_response_errors(resp, data, str(conversation_id))
+        await self._request(
+            "POST",
+            url,
+            tid=str(conversation_id),
+            json=payload,
+        )
 
     @staticmethod
-    async def _handle_exceptions(resp: ClientResponse) -> dict[str, Any]:
+    async def _parse_json(resp: ClientResponse) -> dict[str, Any]:
         """Safely parse response JSON, falling back to plain text if needed."""
 
         try:
             return await resp.json()
         except ContentTypeError as exc:
-            logger.error("Content type error", error=repr(exc), resp=resp.text())
-            raise
+            response_body = await resp.text()
+            logger.error("Content type error", error=repr(exc), resp=response_body)
+            raise FatalError(f"Chatwoot response format error: {exc}") from exc
 
     @staticmethod
     def _handle_response_errors(
@@ -238,15 +240,22 @@ class ChatwootClient(IChatwootClient):
     ) -> None:
         """Handle HTTP errors returned by Chatwoot API."""
 
-        if resp.status == 422:
-            raise ContactAlreadyExistsError(
-                f"Contact with identifier '{tid}' already exists (422). Response: {data}"
-            )
-        if resp.status == 401:
-            raise UnauthorizedError(f"Unauthorized (401): {data}")
         if resp.status >= 500:
-            raise ServerError(f"Chatwoot server error {resp.status}: {data}")
+            raise TransientError(f"Chatwoot server error {resp.status}: {data}")
         if resp.status >= 400:
-            raise ChatwootAPIError(
-                f"Unexpected Chatwoot API error {resp.status}: {data}"
-            )
+            raise FatalError(f"Chatwoot API error {resp.status}: {data}")
+
+    async def _request(
+        self, method: str, url: str, *, tid: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Perform a request and translate network failures."""
+
+        try:
+            async with self._cw_sm.session.request(
+                method, url, headers=self._headers, **kwargs
+            ) as resp:
+                data = await self._parse_json(resp)
+                self._handle_response_errors(resp, data, tid)
+                return data
+        except (ClientError, asyncio.TimeoutError) as exc:
+            raise TransientError(f"Chatwoot request failed: {exc}") from exc
