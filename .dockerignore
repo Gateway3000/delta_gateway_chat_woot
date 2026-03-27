@@ -3,7 +3,6 @@
 !src/
 !chatwoot_client/
 !chatwoot_spec/
-!Makefile
 !pyproject.toml
 !uv.lock
 !main.py
