@@ -78,6 +78,8 @@ def setup_logging() -> None:
     )
 
     logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.getLogger("aiogram").setLevel(logging.WARNING)
+    logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
 
     if settings.environment == "LOCAL":
         structlog.configure(

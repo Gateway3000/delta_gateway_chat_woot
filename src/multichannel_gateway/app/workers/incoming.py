@@ -1,6 +1,7 @@
 from typing import Any
 
 import structlog
+from opentelemetry.trace import SpanKind
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -14,8 +15,14 @@ from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
 
 from src.multichannel_gateway.infrastructure.registry import GatewayRegistry
 from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
+from src.multichannel_gateway.infrastructure.telemetry.helpers import (
+    mark_span_ok,
+    set_span_attributes,
+)
+from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
 logger = structlog.get_logger(__name__)
+tracer = get_tracer(__name__)
 
 
 class IncomingWorker(BaseWorker):
@@ -48,23 +55,45 @@ class IncomingWorker(BaseWorker):
           - Raise `TransientError` for temporary issues.
           - Raise `FatalError` for non-retryable 4xx responses.
         """
-        name = generate_username()[0]
-        if not self.settings.anonymize_users and message["sender"]["name"]:
-            name = message["sender"]["name"]
+        with tracer.start_as_current_span(
+            "incoming_worker.deliver_to_chatwoot", kind=SpanKind.INTERNAL
+        ) as span:
+            name = generate_username()[0]
+            if not self.settings.anonymize_users and message["sender"]["name"]:
+                name = message["sender"]["name"]
 
-        tid = message["sender"]["external_id"]
-        msg = message["payload"]["text"]
-        connector_id = message["connector_id"]
-        cw_account_id = message["cw_account_id"]
-        channel = message["channel"]
-        gw = self._gateways.get_gateway(channel)
-        route = gw.get_route_by_connector_id(connector_id)
-        cw_inbox_id = route["cw_inbox_id"]
-        await self._cwc.deliver_message(
-            account_id=cw_account_id,
-            identifier=str(tid),
-            inbox_id=int(cw_inbox_id),
-            content=msg,
-            name=name,
-        )
-        logger.debug(f"[IncomingWorker] Processing: {message}")
+            tid = message["sender"]["external_id"]
+            msg = message["payload"]["text"]
+            connector_id = message["connector_id"]
+            cw_account_id = message["cw_account_id"]
+            channel = message["channel"]
+            gw = self._gateways.get_gateway(channel)
+            route = gw.get_route_by_connector_id(connector_id)
+            cw_inbox_id = route["cw_inbox_id"]
+
+            set_span_attributes(
+                span,
+                {
+                    "channel": channel,
+                    "connector_id": connector_id,
+                    "cw.account_id": cw_account_id,
+                    "cw.inbox_id": cw_inbox_id,
+                    "enduser.id": tid,
+                },
+            )
+
+            await self._cwc.deliver_message(
+                account_id=cw_account_id,
+                identifier=str(tid),
+                inbox_id=int(cw_inbox_id),
+                content=msg,
+                name=name,
+            )
+            mark_span_ok(span)
+            logger.debug(
+                "Incoming message delivered to Chatwoot",
+                channel=channel,
+                connector_id=connector_id,
+                cw_account_id=cw_account_id,
+                enduser_id=tid,
+            )

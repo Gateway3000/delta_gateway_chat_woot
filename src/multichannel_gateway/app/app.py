@@ -5,6 +5,9 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
+from multichannel_gateway.app.di import telemetry_settings
+from multichannel_gateway.infrastructure.telemetry.sentry import setup_sentry
+from multichannel_gateway.infrastructure.telemetry.tracing import setup_tracing
 from src.multichannel_gateway.app.di import (
     cw_session_manager,
     incoming_worker,
@@ -12,6 +15,7 @@ from src.multichannel_gateway.app.di import (
     registry,
 )
 from src.multichannel_gateway.app.utils.asyncio_policy import check_eventloop_policy
+from src.multichannel_gateway.app.utils.asyncio_tasks import log_background_task_result
 from src.multichannel_gateway.app.utils.logger import setup_logging
 from src.multichannel_gateway.routers.router import router
 
@@ -23,16 +27,19 @@ setup_logging()
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await registry.on_startup()
     await cw_session_manager.start()
-    asyncio.create_task(
+    incoming_task = asyncio.create_task(
         incoming_worker.run(), name=f"incoming_worker_pid_{os.getpid()}"
     )
-    asyncio.create_task(
+    outgoing_task = asyncio.create_task(
         outgoing_worker.run(), name=f"outgoing_worker_pid_{os.getpid()}"
     )
+    incoming_task.add_done_callback(log_background_task_result)
+    outgoing_task.add_done_callback(log_background_task_result)
     yield
     await registry.on_shutdown()
     await cw_session_manager.stop()
     await asyncio.gather(incoming_worker.stop(), outgoing_worker.stop())
+    await asyncio.gather(incoming_task, outgoing_task, return_exceptions=True)
 
 
 app = FastAPI(
@@ -41,4 +48,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+setup_sentry(telemetry_settings)
+setup_tracing(app, telemetry_settings)
 app.include_router(router)

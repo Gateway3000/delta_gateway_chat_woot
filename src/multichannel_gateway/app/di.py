@@ -1,4 +1,4 @@
-from src.multichannel_gateway.app.config import Settings
+from src.multichannel_gateway.app.config import Settings, TelemetrySettings
 from src.multichannel_gateway.app.workers.incoming import IncomingWorker
 from src.multichannel_gateway.app.workers.outgoing import OutgoingWorker
 from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
@@ -10,6 +10,7 @@ from src.multichannel_gateway.infrastructure.registry import GatewayRegistry
 from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
 
 settings: Settings = Settings()
+telemetry_settings: TelemetrySettings = TelemetrySettings()
 
 conn_manager: ConnManager = ConnManager(settings.db_url)
 

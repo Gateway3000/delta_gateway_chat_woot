@@ -81,6 +81,6 @@ class TelegramIOProcessor:
     async def _process_queue(
         self, queue_name: str, idempotency_key: str, envelope: Envelope
     ) -> None:
-        payload = envelope.model_dump_json()
+        payload = envelope.model_dump(mode="json")
         await self._mq.send(queue_name, payload)
         await self._mq.mark_as_processed(idempotency_key)

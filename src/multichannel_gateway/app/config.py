@@ -45,3 +45,16 @@ class Settings(BaseSettings):
             f"postgresql://{self.db_user}:{self.db_pass}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+
+class TelemetrySettings(BaseSettings):
+    otel_enabled: bool = True
+    otel_service_name: str = "channel_gateway"
+    otel_endpoint: str | None = None
+    otel_insecure: bool = True
+    otel_sampling_ratio: float = 1.0
+    sentry_dsn: str | None = None
+    environment: Environment = Environment.LOCAL
+    sentry_release: str | None = None
+    sentry_traces_sample_rate: float = 1.0
+    sentry_send_default_pii: bool = False
