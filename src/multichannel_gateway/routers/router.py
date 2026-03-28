@@ -2,7 +2,7 @@ import structlog
 from fastapi import HTTPException, APIRouter, status
 from fastapi.requests import Request
 from fastapi.responses import Response
-from opentelemetry.trace import Tracer, get_tracer
+from opentelemetry.trace import Span, Tracer, get_tracer
 
 from src.multichannel_gateway.app.di import registry
 from src.multichannel_gateway.core.exceptions import (
@@ -37,27 +37,9 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
             gateway = registry.get_gateway(channel)
             await gateway.process_inbound(raw_data, connector_id)
             mark_span_ok(span)
-
-        except ConnectorNotFoundError as e:
-            mark_span_error(span, e)
-            logger.error("ConnectorNotFoundError", error=repr(e), raw_data=raw_data)
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, detail="Unknown connector_id"
-            ) from e
-        except WrongUpdateTypeError as e:
-            mark_span_error(span, e)
-            logger.error("WrongUpdateTypeError", error=repr(e), raw_data=raw_data)
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, detail="Wrong update type"
-            ) from e
-        except IdempotencyKeyAlreadyProcessedError as e:
-            mark_span_ok(span)
-            logger.info(
-                "IdempotencyKeyAlreadyProcessedError", error=repr(e), raw_data=raw_data
-            )
-            return Response(status_code=status.HTTP_200_OK)
         except Exception as e:
-            mark_span_error(span, e)
+            if response := _handle_exceptions(e, span, raw_data):
+                return response
             raise
         logger.debug("Inbound webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -78,20 +60,42 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
                 gateway = registry.get_gateway(channel)
                 await gateway.process_outbound(raw_data, cw_account_id)
                 mark_span_ok(span)
-
-            except IdempotencyKeyAlreadyProcessedError as e:
-                mark_span_ok(span)
-                logger.info(
-                    "IdempotencyKeyAlreadyProcessedError",
-                    error=repr(e),
-                    raw_data=raw_data,
-                )
-                return Response(status_code=status.HTTP_200_OK)
             except Exception as e:
-                mark_span_error(span, e)
+                if response := _handle_exceptions(e, span, raw_data):
+                    return response
                 raise
         else:
             span.set_attribute("chatwoot.message_type", raw_data.get("message_type"))
             mark_span_ok(span)
         logger.debug("Outbound webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _handle_exceptions(
+    exc: Exception, span: Span, raw_data: dict[str, object]
+) -> Response | None:
+    if isinstance(exc, ConnectorNotFoundError):
+        mark_span_error(span, exc)
+        logger.error("ConnectorNotFoundError", error=repr(exc), raw_data=raw_data)
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Unknown connector_id"
+        ) from exc
+
+    if isinstance(exc, WrongUpdateTypeError):
+        mark_span_error(span, exc)
+        logger.error("WrongUpdateTypeError", error=repr(exc), raw_data=raw_data)
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Wrong update type"
+        ) from exc
+
+    if isinstance(exc, IdempotencyKeyAlreadyProcessedError):
+        mark_span_ok(span)
+        logger.info(
+            "IdempotencyKeyAlreadyProcessedError",
+            error=repr(exc),
+            raw_data=raw_data,
+        )
+        return Response(status_code=status.HTTP_200_OK)
+
+    mark_span_error(span, exc)
+    return None
