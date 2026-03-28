@@ -45,7 +45,7 @@ class GatewayRegistry:
         for gateway in self._gateways.values():
             startup_task = asyncio.create_task(gateway.on_startup())
             tasks.append(startup_task)
-            logger.info(f'Initializing gateway for channel "{gateway.channel}"...')
+            logger.debug(f'Initializing gateway for channel "{gateway.channel}"...')
         await asyncio.gather(*tasks)
 
     async def on_shutdown(self) -> None:

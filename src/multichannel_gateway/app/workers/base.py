@@ -106,7 +106,7 @@ class BaseWorker:
             self._queue_name, timeout=wait_timeout
         )
         if res is False:
-            logger.info(
+            logger.debug(
                 "Worker stopped due to timeout",
                 queue=self._queue_name,
                 timeout=wait_timeout,

@@ -73,7 +73,7 @@ class PGMessageQueue(IMessageQueue):
         await conn.execute("SELECT pgmq.enable_notify_insert('to_cw');")
         await conn.execute("SELECT pgmq.enable_notify_insert('from_cw');")
 
-        logger.info("Tables and extensions ensured.")
+        logger.debug("Tables and extensions ensured.")
 
     async def send(self, queue_name: str, payload: Mapping[str, Any] | str) -> None:
         """Sends a message to the PG queue."""
