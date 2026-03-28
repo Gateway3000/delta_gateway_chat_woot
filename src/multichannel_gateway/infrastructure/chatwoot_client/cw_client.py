@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Literal, Any
 
 import structlog
@@ -235,6 +237,30 @@ class ChatwootClient(IChatwootClient):
             raise FatalError(f"Chatwoot response format error: {exc}") from exc
 
     @staticmethod
+    def _get_retry_delay_seconds(resp: ClientResponse) -> int:
+        """Return retry delay from `Retry-After`, falling back to 60 seconds."""
+
+        retry_after = resp.headers.get("Retry-After")
+        if not retry_after:
+            return 60
+
+        try:
+            return max(1, int(retry_after))
+        except ValueError:
+            try:
+                retry_at = parsedate_to_datetime(retry_after)
+                if retry_at.tzinfo is None:
+                    retry_at = retry_at.replace(tzinfo=timezone.utc)
+                delay_seconds = (retry_at - datetime.now(timezone.utc)).total_seconds()
+                return max(1, int(delay_seconds))
+            except (TypeError, ValueError, OverflowError):
+                logger.warning(
+                    "Invalid Retry-After header from Chatwoot",
+                    retry_after=retry_after,
+                )
+                return 60
+
+    @staticmethod
     def _handle_response_errors(
         resp: ClientResponse, data: dict[str, Any], tid: str
     ) -> None:
@@ -242,6 +268,12 @@ class ChatwootClient(IChatwootClient):
 
         if resp.status >= 500:
             raise TransientError(f"Chatwoot server error {resp.status}: {data}")
+        if resp.status == 429:
+            delay_seconds = ChatwootClient._get_retry_delay_seconds(resp)
+            raise TransientError(
+                f"Chatwoot rate limit exceeded for {tid}: {data}",
+                retry_delay_seconds=delay_seconds,
+            )
         if resp.status >= 400:
             raise FatalError(f"Chatwoot API error {resp.status}: {data}")
 

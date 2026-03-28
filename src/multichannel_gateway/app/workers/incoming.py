@@ -2,11 +2,6 @@ from typing import Any
 
 import structlog
 from opentelemetry.trace import SpanKind
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential_jitter,
-)
 
 from multichannel_gateway.core.name_generator import generate_username
 from src.multichannel_gateway.app.config import Settings
@@ -41,18 +36,12 @@ class IncomingWorker(BaseWorker):
         self._cwc = cw_client
         self._gateways = gateways
 
-    @retry(
-        stop=stop_after_attempt(5),
-        wait=wait_exponential_jitter(initial=5, max=30),
-        reraise=True,
-    )
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """
         Contains the logic for processing messages from Gateway to Chatwoot.
 
         Error handling:
-          - Raise `RateLimitError` for HTTP 429 responses.
-          - Raise `TransientError` for temporary issues.
+          - Raise `TransientError` for temporary issues, including HTTP 429.
           - Raise `FatalError` for non-retryable 4xx responses.
         """
         with tracer.start_as_current_span(

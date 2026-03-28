@@ -11,6 +11,7 @@ from tenacity import (
 
 from src.multichannel_gateway.app.workers.base import BaseWorker
 
+from src.multichannel_gateway.core.interfaces.gateway import IGateway
 from src.multichannel_gateway.infrastructure.registry import GatewayRegistry
 from src.multichannel_gateway.core.exceptions import RateLimitError
 from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
@@ -42,6 +43,11 @@ class OutgoingWorker(BaseWorker):
         retry=retry_if_exception_type(RateLimitError),
         reraise=True,
     )
+    async def _send_with_rate_limit_retry(
+        self, gateway: IGateway, message: dict[str, Any]
+    ) -> Any:
+        return await gateway.send_to_user(message)
+
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """Contains the logic for processing messages from Chatwoot to Gateway."""
         with tracer.start_as_current_span(
@@ -59,7 +65,7 @@ class OutgoingWorker(BaseWorker):
                 },
             )
 
-            delivery_result = await gateway.send_to_user(message)
+            delivery_result = await self._send_with_rate_limit_retry(gateway, message)
             mark_span_ok(span)
             logger.debug(
                 "Message successfully sent to channel",
