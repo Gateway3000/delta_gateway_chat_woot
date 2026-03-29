@@ -1,16 +1,14 @@
 from typing import Any
 
-from src import IGateway, DeliveryResult
-
-from telegram.tg_adapter import TelegramAdapter
+from src import IChannel, DeliveryResult
 from telegram.tg_bot_manager import TelegramBotManager
-from telegram.tg_io_processor import TelegramIOProcessor
+from telegram.tg_message_processor import TelegramMessageProcessor
 from telegram.tg_routing import TelegramRouting
 from telegram.tg_transport import TelegramTransport
 from telegram.tg_wh_manager import TelegramWebhookManager
 
 
-class TelegramGateway(IGateway):
+class TelegramChannel(IChannel):
     channel = "telegram"
 
     def __init__(
@@ -18,15 +16,13 @@ class TelegramGateway(IGateway):
         bot_manager: TelegramBotManager,
         routing: TelegramRouting,
         transport: TelegramTransport,
-        io_processor: TelegramIOProcessor,
-        adapter: TelegramAdapter,
+        io_processor: TelegramMessageProcessor,
         wh_manager: TelegramWebhookManager,
     ) -> None:
         self._bot_manager = bot_manager
         self._routing = routing
         self._transport = transport
         self._io_processor = io_processor
-        self._adapter = adapter
         self._wh_manager = wh_manager
 
     async def on_prefork(self) -> None:
@@ -41,14 +37,10 @@ class TelegramGateway(IGateway):
     async def send_to_user(
         self, message: dict[str, Any], limiter: Any = None
     ) -> DeliveryResult:
-        return await self._transport.send_to_user(message)
+        return await self._transport.send_to_telegram_user(message)
 
-    async def process_inbound(
-        self,
-        raw_data: dict[str, Any],
-        connector_id: str,
-    ) -> None:
-        await self._io_processor.process_inbound(raw_data, connector_id, self.channel)
+    async def process_inbound(self, raw_data: dict[str, Any]) -> None:
+        await self._io_processor.process_inbound(raw_data)
 
     async def process_outbound(
         self, raw_data: dict[str, Any], cw_account_id: str

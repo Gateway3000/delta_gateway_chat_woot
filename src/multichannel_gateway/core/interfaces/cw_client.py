@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.multichannel_gateway.core.attachments import ChatwootAttachment
+from src.multichannel_gateway.core import ChatwootAttachment
 
 
 class IChatwootClient(ABC):

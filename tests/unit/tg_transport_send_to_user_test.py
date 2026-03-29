@@ -18,7 +18,7 @@ from src.multichannel_gateway.core.exceptions import (
     TransientError,
 )
 from telegram.tg_bot_manager import TelegramBotManager
-from telegram.tg_gateway import TelegramGateway
+from telegram.tg_channel import TelegramChannel
 from telegram.tg_transport import TelegramTransport
 
 
@@ -58,12 +58,11 @@ def _build_attachment_message(text: str) -> dict[str, object]:
     return message
 
 
-def _build_gateway(transport: TelegramTransport) -> TelegramGateway:
-    return TelegramGateway(
+def _build_gateway(transport: TelegramTransport) -> TelegramChannel:
+    return TelegramChannel(
         cast(TelegramBotManager, Mock()),
         Mock(),
         transport,
-        Mock(),
         Mock(),
         Mock(),
     )
@@ -74,7 +73,7 @@ async def test_send_to_user_returns_failed_result_on_telegram_api_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bot = Bot("123456:ABCDEF")
-    transport = TelegramTransport(_build_bot_manager(bot), Mock())
+    transport = TelegramTransport(_build_bot_manager(bot))
     api_error = TelegramAPIError(
         SendMessage(chat_id=123321, text="Test message from Chatwoot!"),
         "telegram api failed",
@@ -85,7 +84,7 @@ async def test_send_to_user_returns_failed_result_on_telegram_api_error(
 
     try:
         with pytest.raises(FatalError) as exc_info:
-            await transport.send_to_user(_build_message())
+            await transport.send_to_telegram_user(_build_message())
     finally:
         await bot.session.close()
 
@@ -98,7 +97,7 @@ async def test_send_to_user_raises_fatal_error_on_unexpected_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bot = Bot("123456:ABCDEF")
-    transport = TelegramTransport(_build_bot_manager(bot), Mock())
+    transport = TelegramTransport(_build_bot_manager(bot))
     limiter = AsyncMock()
     unexpected_error = Exception("unexpected telegram failure")
     mock_send_message = AsyncMock(side_effect=unexpected_error)
@@ -107,7 +106,7 @@ async def test_send_to_user_raises_fatal_error_on_unexpected_exception(
 
     try:
         with pytest.raises(FatalError) as exc_info:
-            await transport.send_to_user(_build_message(), limiter=limiter)
+            await transport.send_to_telegram_user(_build_message(), limiter=limiter)
     finally:
         await bot.session.close()
 
@@ -121,7 +120,7 @@ async def test_send_to_user_raises_rate_limit_error_on_retry_after(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bot = Bot("123456:ABCDEF")
-    transport = TelegramTransport(_build_bot_manager(bot), Mock())
+    transport = TelegramTransport(_build_bot_manager(bot))
 
     api_error = TelegramRetryAfter(
         SendMessage(chat_id=123321, text="Test message from Chatwoot!"),
@@ -134,7 +133,7 @@ async def test_send_to_user_raises_rate_limit_error_on_retry_after(
 
     try:
         with pytest.raises(RateLimitError):
-            await transport.send_to_user(_build_message())
+            await transport.send_to_telegram_user(_build_message())
     finally:
         await bot.session.close()
 
@@ -144,7 +143,7 @@ async def test_send_to_user_raises_rate_limit_error_on_retry_after(
 @pytest.mark.asyncio
 async def test_gateway_send_to_user_proxies_transport_result() -> None:
     transport_mock = Mock(spec=TelegramTransport)
-    transport_mock.send_to_user = AsyncMock(
+    transport_mock.send_to_telegram_user = AsyncMock(
         return_value=DeliveryResult(ok=True, external_id="123")
     )
     gateway = _build_gateway(cast(TelegramTransport, transport_mock))
@@ -153,7 +152,7 @@ async def test_gateway_send_to_user_proxies_transport_result() -> None:
 
     assert result.ok is True
     assert result.external_id == "123"
-    transport_mock.send_to_user.assert_awaited_once_with(_build_message())
+    transport_mock.send_to_telegram_user.assert_awaited_once_with(_build_message())
 
 
 @pytest.mark.asyncio
@@ -161,7 +160,7 @@ async def test_send_to_user_raises_transient_error_on_network_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bot = Bot("123456:ABCDEF")
-    transport = TelegramTransport(_build_bot_manager(bot), Mock())
+    transport = TelegramTransport(_build_bot_manager(bot))
     network_error = TelegramNetworkError(
         method=SendMessage(chat_id=123321, text="Test message from Chatwoot!"),
         message=(
@@ -175,7 +174,7 @@ async def test_send_to_user_raises_transient_error_on_network_failure(
 
     try:
         with pytest.raises(TransientError) as exc_info:
-            await transport.send_to_user(_build_message())
+            await transport.send_to_telegram_user(_build_message())
     finally:
         await bot.session.close()
 
@@ -191,7 +190,7 @@ async def test_send_to_user_skips_whitespace_only_text_and_sends_attachment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bot = Bot("123456:ABCDEF")
-    transport = TelegramTransport(_build_bot_manager(bot), Mock())
+    transport = TelegramTransport(_build_bot_manager(bot))
     mock_send_message = AsyncMock()
     sent_photo_message = cast(Message, Mock(message_id=777))
     mock_send_photo = AsyncMock(return_value=sent_photo_message)
@@ -200,7 +199,9 @@ async def test_send_to_user_skips_whitespace_only_text_and_sends_attachment(
     monkeypatch.setattr("aiogram.client.bot.Bot.send_photo", mock_send_photo)
 
     try:
-        result = await transport.send_to_user(_build_attachment_message("   \n\t"))
+        result = await transport.send_to_telegram_user(
+            _build_attachment_message("   \n\t")
+        )
     finally:
         await bot.session.close()
 

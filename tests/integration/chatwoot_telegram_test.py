@@ -7,7 +7,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from telegram.dependencies import tg_settings
+from telegram.tg_wiring import tg_settings
 
 
 @pytest.mark.order(2)

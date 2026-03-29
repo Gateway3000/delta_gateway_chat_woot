@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from src.multichannel_gateway.infrastructure.pydantic_models import DeliveryResult
+from src.multichannel_gateway.core import DeliveryResult
 
 
-class IGateway(ABC):
+class IChannel(ABC):
     """Interface for a channel Gateway.
 
     This represents a high-level API for interacting with communication channels.
@@ -29,11 +29,7 @@ class IGateway(ABC):
         """Sends a message to the end user via the specified channel."""
 
     @abstractmethod
-    async def process_inbound(
-        self,
-        raw_data: dict[str, Any],
-        connector_id: str,
-    ) -> None:
+    async def process_inbound(self, raw_data: dict[str, Any]) -> None:
         """Processes an inbound message received from an external channel."""
 
     @abstractmethod

@@ -3,7 +3,7 @@ from typing import Any, MutableMapping
 
 import structlog
 
-from src.multichannel_gateway.app.di import settings
+from src.multichannel_gateway.app.wiring import settings
 
 RESET = "\x1b[0m"
 COLORS = {

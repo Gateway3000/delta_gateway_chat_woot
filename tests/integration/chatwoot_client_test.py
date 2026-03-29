@@ -7,6 +7,11 @@ import pytest
 from aioresponses import aioresponses
 from aioresponses.core import CallbackResult
 
+from src.multichannel_gateway.core.attachments import LocalFileAttachment
+from src.multichannel_gateway.core.exceptions import FatalError, TransientError
+from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
+    ChatwootClient,
+)
 from tests.data.chatwoot_test_payloads import (
     BASE_URL,
     ACCOUNT_ID,
@@ -18,11 +23,6 @@ from tests.data.chatwoot_test_payloads import (
     GET_CONVERSATION,
     CREATE_MESSAGE,
     CREATE_CONTACT,
-)
-from src.multichannel_gateway.core.attachments import LocalFileAttachment
-from src.multichannel_gateway.core.exceptions import FatalError, TransientError
-from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
-    ChatwootClient,
 )
 
 
@@ -349,6 +349,34 @@ class TestDeliverMessage:
                 )
 
         assert exc_info.value.retry_delay_seconds == 120
+
+    @pytest.mark.asyncio
+    async def test_deliver_message_rate_limit_invalid_retry_after_falls_back_to_60(
+        self, client: ChatwootClient
+    ) -> None:
+        """When Retry-After is invalid, retry delay should fall back to 60 seconds."""
+
+        with aioresponses() as m:
+            m.get(
+                re.compile(
+                    re.escape(
+                        f"{BASE_URL}/api/v1/accounts/{ACCOUNT_ID}/contacts/search"
+                    )
+                ),
+                status=429,
+                payload={"error": "Too Many Requests"},
+                headers={"Retry-After": "not-a-number"},
+            )
+
+            with pytest.raises(TransientError) as exc_info:
+                await client.deliver_message(
+                    account_id=ACCOUNT_ID,
+                    identifier=IDENTIFIER,
+                    inbox_id=INBOX_ID,
+                    content=CONTENT,
+                )
+
+        assert exc_info.value.retry_delay_seconds == 60
 
     @pytest.mark.asyncio
     async def test_deliver_message_unexpected_api_error(

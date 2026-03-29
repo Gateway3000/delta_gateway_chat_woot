@@ -1,3 +1,4 @@
+import json
 from collections.abc import Awaitable, Callable
 from unittest.mock import AsyncMock
 
@@ -15,9 +16,9 @@ class DummyWorker(BaseWorker):
             self._noop_handle_message
         )
 
-    async def _handle_message(self, message: dict[str, object]) -> None:
+    async def _handle_message(self, payload: dict[str, object]) -> None:
         self.handle_message_calls += 1
-        await self.handle_message_hook(message)
+        await self.handle_message_hook(payload)
 
     @staticmethod
     async def _noop_handle_message(_: dict[str, object]) -> None:
@@ -25,6 +26,49 @@ class DummyWorker(BaseWorker):
 
 
 class TestWorkerErrorPolicy:
+    @pytest.mark.asyncio
+    async def test_process_wrapper_processes_valid_payload(self) -> None:
+        mq = AsyncMock()
+        worker = DummyWorker(mq, "test_queue")
+
+        msg = {
+            "msg_id": 42,
+            "message": json.dumps(
+                {
+                    "channel": "telegram",
+                    "connector_id": "tg1",
+                    "cw_account_id": "3",
+                    "sender": {"external_id": "user-1"},
+                    "payload": {"text": "hello"},
+                }
+            ),
+            "read_ct": 1,
+        }
+
+        await worker._process_wrapper(msg)
+
+        assert worker.handle_message_calls == 1
+        mq.delete.assert_awaited_once_with("test_queue", 42)
+
+    @pytest.mark.asyncio
+    async def test_process_wrapper_rejects_invalid_payload_before_handling(
+        self,
+    ) -> None:
+        mq = AsyncMock()
+        worker = DummyWorker(mq, "test_queue")
+
+        msg = {
+            "msg_id": 42,
+            "message": {"payload": "not-a-json-string"},
+            "read_ct": 1,
+        }
+
+        with pytest.raises(ValueError, match="payload must be a string"):
+            await worker._process_wrapper(msg)
+
+        assert worker.handle_message_calls == 0
+        mq.delete.assert_not_awaited()
+
     @pytest.mark.asyncio
     async def test_transient_error_uses_default_delay(self) -> None:
         mq = AsyncMock()

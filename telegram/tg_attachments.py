@@ -265,23 +265,19 @@ async def prepare_inbound_attachments(
     if not attachments:
         return message
 
-    connector_id = str(message["connector_id"])
-    tid = str(message["sender"]["external_id"])
     prepared_attachments: list[LocalFileAttachment] = []
 
     for attachment in attachments:
         prepared_attachment = await _prepare_single_inbound_attachment(
             attachment,
             bot_manager=bot_manager,
-            connector_id=connector_id,
-            chat_id=tid,
+            connector_id=str(message["connector_id"]),
+            chat_id=str(message["sender"]["external_id"]),
             settings=settings,
         )
         if prepared_attachment is not None:
             prepared_attachments.append(prepared_attachment)
 
-    prepared_message = dict(message)
-    prepared_payload = dict(payload)
-    prepared_payload["attachments"] = prepared_attachments
-    prepared_message["payload"] = prepared_payload
-    return prepared_message
+    payload["attachments"] = prepared_attachments
+    message["payload"] = payload
+    return message

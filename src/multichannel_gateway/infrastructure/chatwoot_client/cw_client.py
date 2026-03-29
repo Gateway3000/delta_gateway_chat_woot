@@ -1,12 +1,9 @@
-import asyncio
 import mimetypes
 import os
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from typing import Literal, Any
 
-import structlog
 import aiohttp
+import structlog
 from aiohttp import ClientError, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 from pydantic import TypeAdapter
@@ -16,13 +13,13 @@ from src.multichannel_gateway.core.attachments import (
     LocalFileAttachment,
     UploadedAttachment,
 )
-from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
 from src.multichannel_gateway.core.exceptions import FatalError, TransientError
 from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
-from src.multichannel_gateway.infrastructure.pydantic_models import (
+from src.multichannel_gateway.infrastructure.provider_models import (
     ContactInfo,
     ContactSearchResult,
 )
+from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
 
 logger = structlog.get_logger(__name__)
 attachments_adapter = TypeAdapter(list[ChatwootAttachment])
@@ -364,7 +361,7 @@ class ChatwootClient(IChatwootClient):
             ) as resp:
                 response_data = await self._parse_json(resp)
                 self._handle_response_errors(resp, response_data, filename)
-        except (ClientError, asyncio.TimeoutError) as exc:
+        except (ClientError, TimeoutError) as exc:
             logger.error(
                 "Chatwoot attachment upload transient error",
                 account_id=account_id,
@@ -414,19 +411,12 @@ class ChatwootClient(IChatwootClient):
 
         try:
             return max(1, int(retry_after))
-        except ValueError:
-            try:
-                retry_at = parsedate_to_datetime(retry_after)
-                if retry_at.tzinfo is None:
-                    retry_at = retry_at.replace(tzinfo=timezone.utc)
-                delay_seconds = (retry_at - datetime.now(timezone.utc)).total_seconds()
-                return max(1, int(delay_seconds))
-            except (TypeError, ValueError, OverflowError):
-                logger.warning(
-                    "Invalid Retry-After header from Chatwoot",
-                    retry_after=retry_after,
-                )
-                return 60
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid Retry-After header from Chatwoot",
+                retry_after=retry_after,
+            )
+            return 60
 
     def _handle_response_errors(
         self, resp: ClientResponse, data: dict[str, Any], tid: str
@@ -475,7 +465,7 @@ class ChatwootClient(IChatwootClient):
                 data = await self._parse_json(resp)
                 self._handle_response_errors(resp, data, tid)
                 return data
-        except (ClientError, asyncio.TimeoutError) as exc:
+        except (ClientError, TimeoutError) as exc:
             logger.error(
                 "Chatwoot request transient error",
                 method=method,
