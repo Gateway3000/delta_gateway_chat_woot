@@ -32,6 +32,8 @@ class PGMessageQueue(IMessageQueue):
         self.settings = settings
         self._conn_manager = conn_manager
         self._event = asyncio.Event()
+        self._listener_conns: dict[str, Connection] = {}
+        self._listener_callbacks: dict[str, Any] = {}
 
     async def ensure_database_ready(self) -> None:
         db_conn = await self._conn_manager.get_connection(
@@ -214,10 +216,11 @@ class PGMessageQueue(IMessageQueue):
         for a notification. If a notification is received within the timeout, returns True.
         If the timeout expires without receiving a notification, returns False.
         """
+        channel_name = f"pgmq.q_{queue_name}.INSERT"
+        conn = self._listener_conns.get(queue_name)
 
-        pool = await self._conn_manager.get_pg_pool()
-        async with pool.acquire() as conn:
-            channel_name = f"pgmq.q_{queue_name}.INSERT"
+        if conn is None or conn.is_closed():
+            conn = await self._conn_manager.get_connection(self.settings.db_url)
 
             def set_event(
                 _conn: Connection,
@@ -229,6 +232,11 @@ class PGMessageQueue(IMessageQueue):
                     self._event.set()
 
             await conn.add_listener(channel_name, set_event)
+            self._listener_conns[queue_name] = conn
+            self._listener_callbacks[queue_name] = set_event
+            # Force one immediate re-check after listener setup so a message
+            # inserted between the last read() and add_listener() is not missed.
+            self._event.set()
             logger.debug(
                 "Listener registered",
                 queue=queue_name,
@@ -236,31 +244,23 @@ class PGMessageQueue(IMessageQueue):
                 timeout=timeout,
             )
 
-            try:
-                await asyncio.wait_for(self._event.wait(), timeout)
-                logger.debug(
-                    "The event was triggered",
-                    queue=queue_name,
-                    channel=channel_name,
-                )
-                self._event.clear()
-                return True
-            except asyncio.TimeoutError:
-                logger.debug(
-                    "No notifications received within timeout",
-                    queue=queue_name,
-                    channel=channel_name,
-                    timeout=timeout,
-                )
-                return False
-            finally:
-                with contextlib.suppress(asyncpg.InterfaceError):
-                    await conn.remove_listener(channel_name, set_event)
-                    logger.debug(
-                        "Listener removed",
-                        queue=queue_name,
-                        channel=channel_name,
-                    )
+        try:
+            await asyncio.wait_for(self._event.wait(), timeout)
+            logger.debug(
+                "The event was triggered",
+                queue=queue_name,
+                channel=channel_name,
+            )
+            self._event.clear()
+            return True
+        except asyncio.TimeoutError:
+            logger.debug(
+                "No notifications received within timeout",
+                queue=queue_name,
+                channel=channel_name,
+                timeout=timeout,
+            )
+            return False
 
     async def is_already_processed(self, key: str) -> bool:
         pool = await self._conn_manager.get_pg_pool()
@@ -284,4 +284,7 @@ class PGMessageQueue(IMessageQueue):
 
     async def close(self) -> None:
         self._event.set()
+        for queue_name, conn in self._listener_conns.items():
+            with contextlib.suppress(asyncpg.InterfaceError):
+                await conn.close()
         await self._conn_manager.close_pg_pool()

@@ -2,6 +2,10 @@ from datetime import datetime
 from typing import Mapping, Any
 
 from src import Envelope, SenderInfo
+from src.multichannel_gateway.app.chatwoot_attachments import (
+    extract_chatwoot_attachments,
+)
+from telegram.tg_attachments import extract_telegram_attachments
 from telegram.tg_routing import TelegramRouting
 
 
@@ -20,6 +24,10 @@ class TelegramAdapter:
     ) -> tuple[str, Envelope]:
         route = self._routing.get_route_by_connector_id(connector_id)
         sender_info = self._parse_sender_info(raw_data=raw_data)
+        text = raw_data.get("message", {}).get("text") or raw_data.get(
+            "message", {}
+        ).get("caption", "")
+        attachments = extract_telegram_attachments(raw_data)
         envelope = Envelope(
             idem_key="idempotency_key",
             channel=channel,
@@ -30,7 +38,7 @@ class TelegramAdapter:
             cw_account_id=route["cw_account_id"],
             message_id=str(raw_data["message"]["message_id"]),
             sender=sender_info,
-            payload={"text": raw_data["message"]["text"], "raw_data": raw_data},
+            payload={"text": text, "attachments": attachments, "raw_data": raw_data},
             ts=float(datetime.now().timestamp()),
         )
         idempotency_key = self.idempotency_key(
@@ -47,6 +55,7 @@ class TelegramAdapter:
         self, raw_data: dict[str, Any], cw_account_id: str, channel: str
     ) -> tuple[str, Envelope]:
         route = self._routing.get_route_by_inbox_id(str(raw_data["inbox"]["id"]))
+        attachments = extract_chatwoot_attachments(raw_data)
         sender_info = SenderInfo(
             external_id=raw_data["conversation"]["meta"]["sender"]["identifier"],
         )
@@ -60,7 +69,7 @@ class TelegramAdapter:
             cw_account_id=cw_account_id,
             message_id=str(raw_data["conversation"]["messages"][0]["id"]),
             sender=sender_info,
-            payload={"text": raw_data["content"]},
+            payload={"text": raw_data.get("content", ""), "attachments": attachments},
             ts=float(datetime.now().timestamp()),
         )
         idempotency_key = self.idempotency_key(

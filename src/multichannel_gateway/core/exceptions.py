@@ -35,6 +35,20 @@ class TransientError(Exception):
 class RateLimitError(Exception):
     """A specific rate-limit error."""
 
+    DEFAULT_RETRY_AFTER_SECONDS = 5
+
+    def __init__(
+        self,
+        message: str = "",
+        retry_after_seconds: float = DEFAULT_RETRY_AFTER_SECONDS,
+    ):
+        super().__init__(message)
+        self._retry_after_seconds = retry_after_seconds
+
+    @property
+    def retry_after_seconds(self) -> float:
+        return self._retry_after_seconds
+
 
 class FatalError(Exception):
     """An error for which the message should be sent to the DLQ or archived."""

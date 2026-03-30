@@ -65,7 +65,10 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
                     return response
                 raise
         else:
-            span.set_attribute("chatwoot.message_type", raw_data.get("message_type"))
+            set_span_attributes(
+                span,
+                {"chatwoot.message_type": raw_data.get("message_type")},
+            )
             mark_span_ok(span)
         logger.debug("Outbound webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -26,10 +26,16 @@ tg_processor = TelegramIOProcessor(
     tg_bot_manager,
     tg_transport,
     tg_adapter,
+    tg_settings,
     pgmq,
     tg_settings.incoming_queue_name,
     tg_settings.outgoing_queue_name,
 )
 telegram_gateway = TelegramGateway(
-    tg_bot_manager, tg_routing, tg_transport, tg_processor, tg_adapter, tg_webhooks
+    tg_bot_manager,
+    tg_routing,
+    tg_transport,
+    tg_processor,
+    tg_adapter,
+    tg_webhooks,
 )

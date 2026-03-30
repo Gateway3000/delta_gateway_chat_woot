@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from src.multichannel_gateway.core.attachments import ChatwootAttachment
+
 
 class IChatwootClient(ABC):
     @abstractmethod
@@ -12,4 +14,5 @@ class IChatwootClient(ABC):
         name: str | None = None,
         email: str | None = None,
         phone_number: str | None = None,
+        attachments: list[ChatwootAttachment] | None = None,
     ) -> None: ...
