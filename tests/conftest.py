@@ -2,13 +2,8 @@ import asyncio
 from typing import AsyncGenerator, Any
 
 import asyncpg
-import pytest
 import pytest_asyncio
 
-
-from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
-    ChatwootClient,
-)
 from src.multichannel_gateway.app.di import (
     incoming_worker,
     outgoing_worker,
@@ -16,6 +11,9 @@ from src.multichannel_gateway.app.di import (
     conn_manager,
     registry,
     cw_session_manager,
+)
+from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
+    ChatwootClient,
 )
 from telegram.dependencies import telegram_gateway
 
@@ -57,10 +55,20 @@ async def truncate_all_tables(conn: Any) -> None:
         )
 
 
-@pytest.fixture
-def client() -> ChatwootClient:
-    return ChatwootClient(
+@pytest_asyncio.fixture
+async def client() -> AsyncGenerator[ChatwootClient, None]:
+    started_here = False
+    try:
+        _ = cw_session_manager.session
+    except RuntimeError:
+        await cw_session_manager.start()
+        started_here = True
+
+    yield ChatwootClient(
         api_access_token="test-token",
         base_url="https://chatwoot.example.com",
         cw_session_manager=cw_session_manager,
     )
+
+    if started_here:
+        await cw_session_manager.stop()
