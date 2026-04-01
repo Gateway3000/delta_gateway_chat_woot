@@ -1,7 +1,6 @@
 import re
 
 import pytest
-from aiohttp import ContentTypeError
 from aioresponses import aioresponses
 
 from tests.data.chatwoot_test_payloads import (
@@ -16,12 +15,7 @@ from tests.data.chatwoot_test_payloads import (
     CREATE_MESSAGE,
     CREATE_CONTACT,
 )
-from src.multichannel_gateway.core.exceptions import (
-    ContactAlreadyExistsError,
-    UnauthorizedError,
-    ServerError,
-    ChatwootAPIError,
-)
+from src.multichannel_gateway.core.exceptions import FatalError, TransientError
 from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
     ChatwootClient,
 )
@@ -257,7 +251,7 @@ class TestDeliverMessage:
                 payload={"error": "Unauthorized"},
             )
 
-            with pytest.raises(UnauthorizedError):
+            with pytest.raises(FatalError):
                 await client.deliver_message(
                     account_id=ACCOUNT_ID,
                     identifier=IDENTIFIER,
@@ -287,7 +281,7 @@ class TestDeliverMessage:
                 payload={"error": "Identifier has already been taken"},
             )
 
-            with pytest.raises(ContactAlreadyExistsError):
+            with pytest.raises(FatalError):
                 await client.deliver_message(
                     account_id=ACCOUNT_ID,
                     identifier=IDENTIFIER,
@@ -315,7 +309,7 @@ class TestDeliverMessage:
                 payload={"error": "Server error"},
             )
 
-            with pytest.raises(ServerError):
+            with pytest.raises(TransientError):
                 await client.deliver_message(
                     account_id=ACCOUNT_ID,
                     identifier=IDENTIFIER,
@@ -340,7 +334,7 @@ class TestDeliverMessage:
                 payload={"error": "Unexpected Chatwoot API error"},
             )
 
-            with pytest.raises(ChatwootAPIError):
+            with pytest.raises(FatalError):
                 await client.deliver_message(
                     account_id=ACCOUNT_ID,
                     identifier=IDENTIFIER,
@@ -365,7 +359,7 @@ class TestDeliverMessage:
                 content_type="text/html",
             )
 
-            with pytest.raises(ContentTypeError):
+            with pytest.raises(FatalError):
                 await client.deliver_message(
                     account_id=ACCOUNT_ID,
                     identifier=IDENTIFIER,

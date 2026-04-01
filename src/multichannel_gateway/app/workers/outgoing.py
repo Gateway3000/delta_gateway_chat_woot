@@ -65,5 +65,5 @@ class OutgoingWorker(BaseWorker):
                 "Message successfully sent to channel",
                 channel=channel,
                 connector_id=message.get("connector_id"),
-                delivery_result=delivery_result,
+                external_id=delivery_result.external_id,
             )

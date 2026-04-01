@@ -248,11 +248,24 @@ class BaseWorker:
 
     async def _handle_error(self, msg_id: Any, exc: Exception, attempts: int) -> str:
         if isinstance(exc, TransientError):
-            delay = getattr(exc, "retry_after", 5)
+            max_attempts = exc.max_transient_attempts
+            if attempts >= max_attempts:
+                logger.error(
+                    "Transient error retry limit exceeded, archiving message",
+                    msg_id=msg_id,
+                    attempts=attempts,
+                    queue=self._queue_name,
+                    error=repr(exc),
+                )
+                await self._mq.archive(self._queue_name, msg_id)
+                return "archived_transient_exhausted"
+
+            delay = exc.retry_delay_seconds
             logger.warning(
                 "Transient error, will retry later",
                 msg_id=msg_id,
                 delay=delay,
+                attempts=attempts,
                 queue=self._queue_name,
                 error=repr(exc),
             )
