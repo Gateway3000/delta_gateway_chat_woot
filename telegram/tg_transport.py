@@ -2,12 +2,20 @@ import asyncio
 from typing import Any
 
 from aiogram import Dispatcher, Bot
-from aiogram.exceptions import TelegramAPIError, TelegramNetworkError
+from aiogram.exceptions import (
+    TelegramAPIError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+)
 from aiogram.types import Update
 from aiohttp import ClientConnectorError, ServerDisconnectedError
 
 from src import DeliveryResult, Envelope
-from src.multichannel_gateway.core.exceptions import FatalError, TransientError
+from src.multichannel_gateway.core.exceptions import (
+    RateLimitError,
+    FatalError,
+    TransientError,
+)
 from telegram.tg_bot_manager import TelegramBotManager
 
 
@@ -51,6 +59,8 @@ class TelegramTransport:
                 f"Telegram transient delivery failure: {repr(exc)}"
             ) from exc
 
+        except TelegramRetryAfter as exc:
+            raise RateLimitError from exc
         except TelegramAPIError as exc:
             retry_after = getattr(exc, "retry_after", None)
             if retry_after is not None:

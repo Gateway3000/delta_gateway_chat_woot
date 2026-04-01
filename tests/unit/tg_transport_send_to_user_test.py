@@ -3,11 +3,19 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError, TelegramNetworkError
+from aiogram.exceptions import (
+    TelegramAPIError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+)
 from aiogram.methods import SendMessage
 
 from src import DeliveryResult
-from src.multichannel_gateway.core.exceptions import FatalError, TransientError
+from src.multichannel_gateway.core.exceptions import (
+    FatalError,
+    RateLimitError,
+    TransientError,
+)
 from telegram.tg_bot_manager import TelegramBotManager
 from telegram.tg_gateway import TelegramGateway
 from telegram.tg_transport import TelegramTransport
@@ -94,31 +102,27 @@ async def test_send_to_user_raises_fatal_error_on_unexpected_exception(
 
 
 @pytest.mark.asyncio
-async def test_send_to_user_raises_transient_error_on_retry_after(
+async def test_send_to_user_raises_rate_limit_error_on_retry_after(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bot = Bot("123456:ABCDEF")
     transport = TelegramTransport(_build_bot_manager(bot), Mock())
 
-    api_error = TelegramAPIError(
+    api_error = TelegramRetryAfter(
         SendMessage(chat_id=123321, text="Test message from Chatwoot!"),
         "too many requests",
+        retry_after=12,
     )
-    api_error.retry_after = 12.5
     mock_send_message = AsyncMock(side_effect=api_error)
 
     monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
 
     try:
-        with pytest.raises(TransientError) as exc_info:
+        with pytest.raises(RateLimitError):
             await transport.send_to_user(_build_message())
     finally:
         await bot.session.close()
 
-    assert (
-        str(exc_info.value)
-        == f"Telegram rate limited: retry after 12.5s ({repr(api_error)})"
-    )
     mock_send_message.assert_awaited_once()
 
 

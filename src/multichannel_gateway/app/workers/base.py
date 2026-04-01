@@ -294,12 +294,18 @@ class BaseWorker:
 
     async def _handle_message(self, message: dict[str, Any]) -> None:
         """
-        Implements the retry policy for message handling:
+        Process a single message.
 
-        - RateLimitError / TransientError: compute a new VT and exit
-          (the message will become visible later).
-        - FatalError: re-raise the exception so the message gets archived.
-        - Success: delete the message from the queue.
+        Expected error contract:
+
+        - `TransientError`: schedule a delayed retry through the queue.
+        - `FatalError`: archive the message.
+        - other exceptions: leave the message to become visible again after VT.
+        - success: delete the message from the queue.
+
+        Subclasses may still use narrower local retry around specific external calls,
+        for example provider rate limits, but that retry should not wrap the entire
+        message handling flow.
         """
         raise NotImplementedError(
             "_handle_message must be implemented by child classes"

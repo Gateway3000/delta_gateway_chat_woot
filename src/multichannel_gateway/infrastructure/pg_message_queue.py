@@ -7,13 +7,12 @@ from typing import Any
 
 import asyncpg
 import structlog
-import tenacity
 from asyncpg import Connection
 from opentelemetry.trace import SpanKind
 
-from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
 from src.multichannel_gateway.app.config import Settings
 from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
+from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
 from src.multichannel_gateway.infrastructure.telemetry.helpers import (
     mark_span_error,
     mark_span_ok,
@@ -106,12 +105,6 @@ class PGMessageQueue(IMessageQueue):
                 mark_span_error(span, exc)
                 raise
 
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=10, max=600),
-        retry=tenacity.retry_if_exception_type((OSError, ConnectionError)),
-        before_sleep=tenacity.before_sleep_log(logger, 40),
-        reraise=True,
-    )
     async def read(
         self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]:
@@ -281,10 +274,10 @@ class PGMessageQueue(IMessageQueue):
         logger.debug("Marking key as processed", key=key)
         pool = await self._conn_manager.get_pg_pool()
         query = """
-            INSERT INTO pgmq.processed_keys (key, processed_at)
-            VALUES ($1, $2)
-            ON CONFLICT (key) DO NOTHING
-        """
+                INSERT INTO pgmq.processed_keys (key, processed_at)
+                VALUES ($1, $2)
+                ON CONFLICT (key) DO NOTHING \
+                """
         async with pool.acquire() as conn:
             await conn.execute(query, key, datetime.now(timezone.utc))
         logger.debug("Key marked as processed", key=key)

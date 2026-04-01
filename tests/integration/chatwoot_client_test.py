@@ -318,6 +318,34 @@ class TestDeliverMessage:
                 )
 
     @pytest.mark.asyncio
+    async def test_deliver_message_rate_limit_uses_retry_after(
+        self, client: ChatwootClient
+    ) -> None:
+        """When Chatwoot returns 429, retry delay should come from Retry-After."""
+
+        with aioresponses() as m:
+            m.get(
+                re.compile(
+                    re.escape(
+                        f"{BASE_URL}/api/v1/accounts/{ACCOUNT_ID}/contacts/search"
+                    )
+                ),
+                status=429,
+                payload={"error": "Too Many Requests"},
+                headers={"Retry-After": "120"},
+            )
+
+            with pytest.raises(TransientError) as exc_info:
+                await client.deliver_message(
+                    account_id=ACCOUNT_ID,
+                    identifier=IDENTIFIER,
+                    inbox_id=INBOX_ID,
+                    content=CONTENT,
+                )
+
+        assert exc_info.value.retry_delay_seconds == 120
+
+    @pytest.mark.asyncio
     async def test_deliver_message_unexpected_api_error(
         self, client: ChatwootClient
     ) -> None:
