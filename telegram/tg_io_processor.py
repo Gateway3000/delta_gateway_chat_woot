@@ -11,6 +11,8 @@ from src import (
 )
 
 from telegram.tg_adapter import TelegramAdapter
+from telegram.plugin_settings import TelegramSettings
+from telegram.tg_attachments import prepare_inbound_attachments
 from telegram.tg_bot_manager import TelegramBotManager
 from telegram.tg_transport import TelegramTransport
 
@@ -30,6 +32,7 @@ class TelegramIOProcessor:
         bot_manager: TelegramBotManager,
         transport: TelegramTransport,
         adapter: TelegramAdapter,
+        settings: TelegramSettings,
         mq: PGMessageQueue,
         incoming_queue_name: str,
         outgoing_queue_name: str,
@@ -37,6 +40,7 @@ class TelegramIOProcessor:
         self._bot_manager = bot_manager
         self._transport = transport
         self._adapter = adapter
+        self._settings = settings
         self._mq = mq
         self._iqn = incoming_queue_name
         self._oqn = outgoing_queue_name
@@ -49,6 +53,12 @@ class TelegramIOProcessor:
         )
         bot = self._get_required_bot(connector_id)
         if not await self._is_already_processed(idempotency_key):
+            prepared_payload = await prepare_inbound_attachments(
+                envelope.model_dump(mode="json"),
+                bot_manager=self._bot_manager,
+                settings=self._settings,
+            )
+            envelope = Envelope.model_validate(prepared_payload)
             await self._process_queue(self._iqn, idempotency_key, envelope)
             await self._transport.send_to_telegram(bot, raw_data)
         else:

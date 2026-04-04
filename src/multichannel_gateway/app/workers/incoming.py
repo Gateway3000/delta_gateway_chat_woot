@@ -47,16 +47,18 @@ class IncomingWorker(BaseWorker):
         with tracer.start_as_current_span(
             "incoming_worker.deliver_to_chatwoot", kind=SpanKind.INTERNAL
         ) as span:
+            channel = message["channel"]
+            gw = self._gateways.get_gateway(channel)
+
             name = generate_username()[0]
             if not self.settings.anonymize_users and message["sender"]["name"]:
                 name = message["sender"]["name"]
 
             tid = message["sender"]["external_id"]
-            msg = message["payload"]["text"]
+            msg = message["payload"].get("text") or ""
+            attachments = message["payload"].get("attachments", [])
             connector_id = message["connector_id"]
             cw_account_id = message["cw_account_id"]
-            channel = message["channel"]
-            gw = self._gateways.get_gateway(channel)
             route = gw.get_route_by_connector_id(connector_id)
             cw_inbox_id = route["cw_inbox_id"]
 
@@ -68,16 +70,24 @@ class IncomingWorker(BaseWorker):
                     "cw.account_id": cw_account_id,
                     "cw.inbox_id": cw_inbox_id,
                     "enduser.id": tid,
+                    "message.attachments_count": len(attachments),
                 },
             )
 
-            await self._cwc.deliver_message(
-                account_id=cw_account_id,
-                identifier=str(tid),
-                inbox_id=int(cw_inbox_id),
-                content=msg,
-                name=name,
-            )
+            if msg or attachments:
+                await self._cwc.deliver_message(
+                    account_id=int(cw_account_id),
+                    identifier=str(tid),
+                    inbox_id=int(cw_inbox_id),
+                    content=msg,
+                    name=name,
+                    attachments=attachments or None,
+                )
+            else:
+                logger.warning(
+                    "Skipping empty message after failed attachments",
+                    sender_id=str(tid),
+                )
             mark_span_ok(span)
             logger.debug(
                 "Incoming message delivered to Chatwoot",

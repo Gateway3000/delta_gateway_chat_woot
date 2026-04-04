@@ -12,3 +12,8 @@ class BotConfig(BaseModel):
 
 class TelegramSettings(Settings):
     bots_config: list[BotConfig] = []
+    channel_upload_max_mb: int = 20
+    chatwoot_upload_max_mb: int = 40
+    oversize_file_message: str = (
+        "The file is too large to forward. Please send a smaller file."
+    )

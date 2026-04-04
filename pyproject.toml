@@ -22,7 +22,6 @@ dependencies = [
     "pydantic-settings==2.10.1",
     "pydantic[email]==2.11.9",
     "aiogram==3.25",
-    "tenacity==9.1.2",
     "aiolimiter==1.2.0",
     "structlog==25.4.0",
     "pre-commit==4.5.0",

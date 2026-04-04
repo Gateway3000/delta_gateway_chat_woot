@@ -9,6 +9,7 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
 )
 from aiogram.methods import SendMessage
+from aiogram.types import Message
 
 from src import DeliveryResult
 from src.multichannel_gateway.core.exceptions import (
@@ -41,6 +42,20 @@ def _build_message() -> dict[str, object]:
         "payload": {"text": "Test message from Chatwoot!"},
         "ts": 1.0,
     }
+
+
+def _build_attachment_message(text: str) -> dict[str, object]:
+    message = _build_message()
+    message["payload"] = {
+        "text": text,
+        "attachments": [
+            {
+                "file_type": "image",
+                "data_url": "https://example.com/image.jpg",
+            }
+        ],
+    }
+    return message
 
 
 def _build_gateway(transport: TelegramTransport) -> TelegramGateway:
@@ -169,3 +184,27 @@ async def test_send_to_user_raises_transient_error_on_network_failure(
         == f"Telegram transient delivery failure: {repr(network_error)}"
     )
     mock_send_message.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_skips_whitespace_only_text_and_sends_attachment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot), Mock())
+    mock_send_message = AsyncMock()
+    sent_photo_message = cast(Message, Mock(message_id=777))
+    mock_send_photo = AsyncMock(return_value=sent_photo_message)
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_photo", mock_send_photo)
+
+    try:
+        result = await transport.send_to_user(_build_attachment_message("   \n\t"))
+    finally:
+        await bot.session.close()
+
+    assert result.ok is True
+    assert result.external_id == "777"
+    mock_send_message.assert_not_awaited()
+    mock_send_photo.assert_awaited_once()

@@ -1,12 +1,21 @@
 import asyncio
+import mimetypes
+import os
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Literal, Any
 
 import structlog
+import aiohttp
 from aiohttp import ClientError, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
+from pydantic import TypeAdapter
 
+from src.multichannel_gateway.core.attachments import (
+    ChatwootAttachment,
+    LocalFileAttachment,
+    UploadedAttachment,
+)
 from src.multichannel_gateway.infrastructure.session_manager import HTTPSessionManager
 from src.multichannel_gateway.core.exceptions import FatalError, TransientError
 from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
@@ -16,6 +25,7 @@ from src.multichannel_gateway.infrastructure.pydantic_models import (
 )
 
 logger = structlog.get_logger(__name__)
+attachments_adapter = TypeAdapter(list[ChatwootAttachment])
 
 
 class ChatwootClient(IChatwootClient):
@@ -44,6 +54,7 @@ class ChatwootClient(IChatwootClient):
         name: str | None = None,
         email: str | None = None,
         phone_number: str | None = None,
+        attachments: list[ChatwootAttachment] | None = None,
     ) -> None:
         """Facade method to find or create a contact, ensure conversation exists,
         and send a message to that conversation.
@@ -77,8 +88,38 @@ class ChatwootClient(IChatwootClient):
                     inbox_id,
                 )
 
-        # Step 2: Create and send a new incoming message
-        await self._create_message(account_id, conversation_id, "incoming", content)
+        normalized_attachments = self._normalize_attachments(attachments)
+
+        try:
+            uploaded_attachments = await self._upload_message_attachments(
+                account_id, normalized_attachments
+            )
+
+            # Step 2: Create and send a new incoming message
+            await self._create_message(
+                account_id,
+                conversation_id,
+                "incoming",
+                content,
+                attachments=uploaded_attachments,
+            )
+        except FatalError:
+            logger.debug(
+                "Cleaning up temp attachments after fatal Chatwoot delivery error",
+                account_id=account_id,
+                identifier=identifier,
+                attachments_count=len(normalized_attachments),
+            )
+            self._cleanup_temp_attachments(normalized_attachments)
+            raise
+        else:
+            logger.debug(
+                "Cleaning up temp attachments after successful Chatwoot delivery",
+                account_id=account_id,
+                identifier=identifier,
+                attachments_count=len(normalized_attachments),
+            )
+            self._cleanup_temp_attachments(normalized_attachments)
 
     async def _search_contact(
         self, account_id: int, identifier: str
@@ -209,6 +250,7 @@ class ChatwootClient(IChatwootClient):
         conversation_id: int,
         msg_type: Literal["incoming", "outgoing"],
         content: str,
+        attachments: list[str] | None = None,
     ) -> None:
         """Create a message in an existing conversation.
         No value is returned, errors are raised for non-2xx status codes.
@@ -216,7 +258,9 @@ class ChatwootClient(IChatwootClient):
 
         url = f"{self.base_url}/api/v1/accounts/{account_id}/conversations/{conversation_id}/messages"
 
-        payload = {"message_type": msg_type, "content": content}
+        payload: dict[str, Any] = {"message_type": msg_type, "content": content}
+        if attachments:
+            payload["attachments"] = attachments[:15]
 
         await self._request(
             "POST",
@@ -224,6 +268,130 @@ class ChatwootClient(IChatwootClient):
             tid=str(conversation_id),
             json=payload,
         )
+
+    async def _upload_message_attachments(
+        self,
+        account_id: int,
+        attachments: list[ChatwootAttachment] | None,
+    ) -> list[str]:
+        if not attachments:
+            return []
+
+        signed_ids: list[str] = []
+        for attachment in attachments:
+            if isinstance(attachment, UploadedAttachment):
+                signed_ids.append(attachment.signed_id)
+                continue
+
+            upload_result = await self._upload_file(
+                account_id,
+                str(attachment.temp_file_path),
+                attachment.filename,
+                attachment.mime_type,
+            )
+            if upload_result and upload_result.get("signed_id"):
+                logger.debug(
+                    "Chatwoot attachment uploaded",
+                    account_id=account_id,
+                    filename=attachment.filename,
+                    temp_file_path=str(attachment.temp_file_path),
+                    signed_id=str(upload_result["signed_id"]),
+                )
+                signed_ids.append(str(upload_result["signed_id"]))
+
+        return signed_ids
+
+    @staticmethod
+    def _cleanup_temp_attachments(attachments: list[ChatwootAttachment] | None) -> None:
+        if not attachments:
+            return
+
+        for attachment in attachments:
+            if isinstance(attachment, LocalFileAttachment) and os.path.exists(
+                attachment.temp_file_path
+            ):
+                logger.debug(
+                    "Cleaning up Chatwoot temp attachment",
+                    filename=attachment.filename,
+                    temp_file_path=str(attachment.temp_file_path),
+                )
+                os.remove(attachment.temp_file_path)
+
+    @staticmethod
+    def _normalize_attachments(
+        attachments: list[ChatwootAttachment] | None,
+    ) -> list[ChatwootAttachment]:
+        return attachments_adapter.validate_python(attachments) if attachments else []
+
+    async def _upload_file(
+        self,
+        account_id: int,
+        temp_file_path: str,
+        filename: str,
+        mime_type: str,
+    ) -> dict[str, Any] | None:
+        """Upload a file to Chatwoot and return metadata needed for message attachments."""
+        if not os.path.exists(temp_file_path):
+            logger.error("Upload file not found", path=temp_file_path)
+            return None
+
+        resolved_mime_type = mime_type
+        if not resolved_mime_type or "/" not in resolved_mime_type:
+            guessed_type, _ = mimetypes.guess_type(filename)
+            resolved_mime_type = guessed_type or "application/octet-stream"
+
+        url = f"{self.base_url}/api/v1/accounts/{account_id}/upload"
+        headers = {
+            key: value
+            for key, value in self._headers.items()
+            if key.lower() != "content-type"
+        }
+
+        with open(temp_file_path, "rb") as file:
+            file_content = file.read()
+
+        data = aiohttp.FormData()
+        data.add_field(
+            name="attachment",
+            value=file_content,
+            filename=filename,
+            content_type=resolved_mime_type,
+        )
+
+        try:
+            async with self._cw_sm.session.post(
+                url, headers=headers, data=data
+            ) as resp:
+                response_data = await self._parse_json(resp)
+                self._handle_response_errors(resp, response_data, filename)
+        except (ClientError, asyncio.TimeoutError) as exc:
+            logger.error(
+                "Chatwoot attachment upload transient error",
+                account_id=account_id,
+                filename=filename,
+                temp_file_path=temp_file_path,
+                error=repr(exc),
+            )
+            raise TransientError(f"Chatwoot upload failed: {exc}") from exc
+
+        file_url = response_data.get("file_url")
+        if not file_url:
+            logger.error("Upload response missing file_url", response=response_data)
+            return None
+
+        signed_id = response_data.get("signed_id")
+        if not signed_id and "redirect/" in file_url:
+            signed_id = file_url.split("redirect/")[1].rsplit("/", 1)[0]
+        if not signed_id:
+            logger.error("Upload response missing signed_id", response=response_data)
+            return None
+
+        return {
+            "signed_id": signed_id,
+            "file_url": file_url,
+            "file_type": response_data.get("file_type", resolved_mime_type),
+            "file_size": response_data.get("file_size"),
+        }
 
     @staticmethod
     async def _parse_json(resp: ClientResponse) -> dict[str, Any]:
@@ -260,21 +428,39 @@ class ChatwootClient(IChatwootClient):
                 )
                 return 60
 
-    @staticmethod
     def _handle_response_errors(
-        resp: ClientResponse, data: dict[str, Any], tid: str
+        self, resp: ClientResponse, data: dict[str, Any], tid: str
     ) -> None:
         """Handle HTTP errors returned by Chatwoot API."""
 
         if resp.status >= 500:
+            logger.error(
+                "Chatwoot server error response",
+                status_code=resp.status,
+                tid=tid,
+                response=data,
+            )
             raise TransientError(f"Chatwoot server error {resp.status}: {data}")
         if resp.status == 429:
-            delay_seconds = ChatwootClient._get_retry_delay_seconds(resp)
+            delay_seconds = self._get_retry_delay_seconds(resp)
+            logger.error(
+                "Chatwoot rate limit response",
+                status_code=resp.status,
+                tid=tid,
+                retry_delay_seconds=delay_seconds,
+                response=data,
+            )
             raise TransientError(
                 f"Chatwoot rate limit exceeded for {tid}: {data}",
                 retry_delay_seconds=delay_seconds,
             )
         if resp.status >= 400:
+            logger.error(
+                "Chatwoot fatal error response",
+                status_code=resp.status,
+                tid=tid,
+                response=data,
+            )
             raise FatalError(f"Chatwoot API error {resp.status}: {data}")
 
     async def _request(
@@ -290,4 +476,11 @@ class ChatwootClient(IChatwootClient):
                 self._handle_response_errors(resp, data, tid)
                 return data
         except (ClientError, asyncio.TimeoutError) as exc:
+            logger.error(
+                "Chatwoot request transient error",
+                method=method,
+                url=url,
+                tid=tid,
+                error=repr(exc),
+            )
             raise TransientError(f"Chatwoot request failed: {exc}") from exc

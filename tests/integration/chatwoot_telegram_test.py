@@ -70,3 +70,51 @@ async def test_chatwoot_telegram(
 
     # The second call throws IdempotencyKeyAlreadyProcessedError
     assert response.status_code == 200
+
+
+class _Msg:
+    def __init__(self, message_id: int):
+        self.message_id = message_id
+
+
+@pytest.mark.order(4)
+@pytest.mark.asyncio(loop_scope="session")
+async def test_chatwoot_telegram_attachment(
+    monkeypatch: pytest.MonkeyPatch,
+    start_session_and_workers: tuple[asyncio.Task[Any], asyncio.Task[Any]],
+) -> None:
+    raw_data = {
+        "inbox": {"id": "18"},
+        "cw_account_id": "3",
+        "conversation": {
+            "messages": [{"id": "60539"}],
+            "meta": {"sender": {"identifier": "123321"}},
+        },
+        "content": "",
+        "attachments": [
+            {
+                "file_type": "image",
+                "data_url": "https://example.com/image.jpg",
+            }
+        ],
+        "message_type": "outgoing",
+    }
+
+    mock_send_message = AsyncMock(return_value=_Msg(901))
+    mock_send_photo = AsyncMock(return_value=_Msg(902))
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_photo", mock_send_photo)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as cl:
+        response = await cl.post(
+            f"/ingest/outgoing/telegram/{tg_settings.bots_config[0].cw_account_id}/webhook",
+            json=raw_data,
+        )
+        await asyncio.sleep(1)
+
+    assert response.status_code == 204
+    mock_send_message.assert_not_called()
+    mock_send_photo.assert_called_once()
