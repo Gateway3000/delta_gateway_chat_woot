@@ -12,6 +12,10 @@ from opentelemetry.trace import SpanKind
 
 from src.multichannel_gateway.app import Settings
 from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
+from src.multichannel_gateway.infrastructure.postgres_transient import (
+    is_transient_postgres_error,
+    raise_transient_postgres_error,
+)
 from src.multichannel_gateway.infrastructure.telemetry import (
     get_tracer,
     inject_trace_context,
@@ -102,19 +106,34 @@ class PGMessageQueue:
                 mark_span_ok(span)
             except Exception as exc:
                 mark_span_error(span, exc)
+                if is_transient_postgres_error(exc):
+                    raise_transient_postgres_error(
+                        exc,
+                        operation="send",
+                        queue_name=queue_name,
+                    )
                 raise
 
     async def read(
         self, queue_name: str, vt: int = 30, message_limit: int = 1
     ) -> list[dict[str, Any]]:
         """Reads messages from the queue and makes them invisible for `vt` seconds."""
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT * FROM pgmq.read($1::TEXT, $2::INT, $3::INT)"
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(query, queue_name, vt, message_limit)
-            messages = [dict(r) for r in rows]
-        logger.debug("Messages read", queue=queue_name, count=len(messages))
-        return messages
+        try:
+            pool = await self._conn_manager.get_pg_pool()
+            query = "SELECT * FROM pgmq.read($1::TEXT, $2::INT, $3::INT)"
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(query, queue_name, vt, message_limit)
+                messages = [dict(r) for r in rows]
+            logger.debug("Messages read", queue=queue_name, count=len(messages))
+            return messages
+        except Exception as exc:
+            if is_transient_postgres_error(exc):
+                raise_transient_postgres_error(
+                    exc,
+                    operation="read",
+                    queue_name=queue_name,
+                )
+            raise
 
     async def delete(self, queue_name: str, msg_id: int) -> None:
         """Deletes processed messages from the queue."""
@@ -138,6 +157,13 @@ class PGMessageQueue:
                 mark_span_ok(span)
             except Exception as exc:
                 mark_span_error(span, exc)
+                if is_transient_postgres_error(exc):
+                    raise_transient_postgres_error(
+                        exc,
+                        operation="delete",
+                        queue_name=queue_name,
+                        msg_id=msg_id,
+                    )
                 raise
 
     async def archive(self, queue_name: str, msg_id: int) -> None:
@@ -154,7 +180,6 @@ class PGMessageQueue:
                 },
             )
             try:
-                logger.warning("Archiving message", queue=queue_name, msg_id=msg_id)
                 pool = await self._conn_manager.get_pg_pool()
                 query = "SELECT pgmq.archive($1::text, $2::bigint)"
                 async with pool.acquire() as conn:
@@ -163,6 +188,13 @@ class PGMessageQueue:
                 mark_span_ok(span)
             except Exception as exc:
                 mark_span_error(span, exc)
+                if is_transient_postgres_error(exc):
+                    raise_transient_postgres_error(
+                        exc,
+                        operation="archive",
+                        queue_name=queue_name,
+                        msg_id=msg_id,
+                    )
                 raise
 
     async def set_vt(self, queue_name: str, msg_id: Any, delay_seconds: float) -> None:
@@ -202,6 +234,13 @@ class PGMessageQueue:
                 mark_span_ok(span)
             except Exception as exc:
                 mark_span_error(span, exc)
+                if is_transient_postgres_error(exc):
+                    raise_transient_postgres_error(
+                        exc,
+                        operation="set_vt",
+                        queue_name=queue_name,
+                        msg_id=msg_id if isinstance(msg_id, int) else None,
+                    )
                 raise
 
     async def wait_for_notification(
@@ -216,30 +255,39 @@ class PGMessageQueue:
         channel_name = f"pgmq.q_{queue_name}.INSERT"
         conn = self._listener_conns.get(queue_name)
 
-        if conn is None or conn.is_closed():
-            conn = await self._conn_manager.get_connection(self.settings.db_url)
+        try:
+            if conn is None or conn.is_closed():
+                conn = await self._conn_manager.get_connection(self.settings.db_url)
 
-            def set_event(
-                _conn: Connection,
-                _pid: int,
-                _channel: str,
-                _payload: str | None,
-            ) -> None:
-                if _channel == channel_name:
-                    self._event.set()
+                def set_event(
+                    _conn: Connection,
+                    _pid: int,
+                    _channel: str,
+                    _payload: str | None,
+                ) -> None:
+                    if _channel == channel_name:
+                        self._event.set()
 
-            await conn.add_listener(channel_name, set_event)
-            self._listener_conns[queue_name] = conn
-            self._listener_callbacks[queue_name] = set_event
-            # Force one immediate re-check after listener setup so a message
-            # inserted between the last read() and add_listener() is not missed.
-            self._event.set()
-            logger.debug(
-                "Listener registered",
-                queue=queue_name,
-                channel=channel_name,
-                timeout=timeout,
-            )
+                await conn.add_listener(channel_name, set_event)
+                self._listener_conns[queue_name] = conn
+                self._listener_callbacks[queue_name] = set_event
+                # Force one immediate re-check after listener setup so a message
+                # inserted between the last read() and add_listener() is not missed.
+                self._event.set()
+                logger.debug(
+                    "Listener registered",
+                    queue=queue_name,
+                    channel=channel_name,
+                    timeout=timeout,
+                )
+        except Exception as exc:
+            if is_transient_postgres_error(exc):
+                raise_transient_postgres_error(
+                    exc,
+                    operation="wait_for_notification",
+                    queue_name=queue_name,
+                )
+            raise
 
         try:
             await asyncio.wait_for(self._event.wait(), timeout)
@@ -260,24 +308,42 @@ class PGMessageQueue:
             return False
 
     async def is_already_processed(self, key: str) -> bool:
-        pool = await self._conn_manager.get_pg_pool()
-        query = "SELECT 1 FROM pgmq.processed_keys WHERE key = $1"
+        try:
+            pool = await self._conn_manager.get_pg_pool()
+            query = "SELECT 1 FROM pgmq.processed_keys WHERE key = $1"
 
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(query, key)
-        return row is not None
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(query, key)
+            return row is not None
+        except Exception as exc:
+            if is_transient_postgres_error(exc):
+                raise_transient_postgres_error(
+                    exc,
+                    operation="is_already_processed",
+                    key=key,
+                )
+            raise
 
     async def mark_as_processed(self, key: str) -> None:
         logger.debug("Marking key as processed", key=key)
-        pool = await self._conn_manager.get_pg_pool()
-        query = """
-                INSERT INTO pgmq.processed_keys (key, processed_at)
-                VALUES ($1, $2)
-                ON CONFLICT (key) DO NOTHING \
-                """
-        async with pool.acquire() as conn:
-            await conn.execute(query, key, datetime.now(timezone.utc))
-        logger.debug("Key marked as processed", key=key)
+        try:
+            pool = await self._conn_manager.get_pg_pool()
+            query = """
+                    INSERT INTO pgmq.processed_keys (key, processed_at)
+                    VALUES ($1, $2)
+                    ON CONFLICT (key) DO NOTHING \
+                    """
+            async with pool.acquire() as conn:
+                await conn.execute(query, key, datetime.now(timezone.utc))
+            logger.debug("Key marked as processed", key=key)
+        except Exception as exc:
+            if is_transient_postgres_error(exc):
+                raise_transient_postgres_error(
+                    exc,
+                    operation="mark_as_processed",
+                    key=key,
+                )
+            raise
 
     async def close(self) -> None:
         self._event.set()

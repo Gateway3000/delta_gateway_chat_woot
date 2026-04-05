@@ -8,6 +8,7 @@ from src.multichannel_gateway.app.wiring import registry
 from src.multichannel_gateway.core import (
     ConnectorNotFoundError,
     IdempotencyKeyAlreadyProcessedError,
+    TransientError,
     WrongUpdateTypeError,
 )
 from src.multichannel_gateway.infrastructure.telemetry import (
@@ -101,6 +102,19 @@ def _handle_exceptions(
             raw_data=raw_data,
         )
         return Response(status_code=status.HTTP_200_OK)
+
+    if isinstance(exc, TransientError):
+        mark_span_error(span, exc)
+        logger.error(
+            "TransientError while processing webhook",
+            error=repr(exc),
+            raw_data=raw_data,
+            retry_after_seconds=exc.retry_delay_seconds,
+        )
+        return Response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            headers={"Retry-After": str(exc.retry_delay_seconds)},
+        )
 
     mark_span_error(span, exc)
     return None

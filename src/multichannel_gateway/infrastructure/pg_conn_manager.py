@@ -4,6 +4,11 @@ import asyncpg
 import structlog
 from asyncpg import Connection
 
+from src.multichannel_gateway.infrastructure.postgres_transient import (
+    is_transient_postgres_error,
+    raise_transient_postgres_error,
+)
+
 logger = structlog.get_logger(__name__)
 
 
@@ -22,16 +27,21 @@ class ConnManager:
     async def _init_pg_pool(self) -> asyncpg.pool.Pool:
         async with self._pool_init_lock:
             if self._pg_pool is None:
-                self._pg_pool = await asyncpg.create_pool(
-                    dsn=self._pg_dsn,
-                    min_size=self._min_pool_size,
-                    max_size=self._max_pool_size,
-                )
-                logger.debug(
-                    "Pool has been created",
-                    min_size=self._min_pool_size,
-                    max_size=self._max_pool_size,
-                )
+                try:
+                    self._pg_pool = await asyncpg.create_pool(
+                        dsn=self._pg_dsn,
+                        min_size=self._min_pool_size,
+                        max_size=self._max_pool_size,
+                    )
+                    logger.debug(
+                        "Pool has been created",
+                        min_size=self._min_pool_size,
+                        max_size=self._max_pool_size,
+                    )
+                except Exception as exc:
+                    if is_transient_postgres_error(exc):
+                        raise_transient_postgres_error(exc, operation="create_pool")
+                    raise
         return self._pg_pool
 
     async def close_pg_pool(self) -> None:
@@ -46,7 +56,12 @@ class ConnManager:
 
     @staticmethod
     async def get_connection(dsn: str) -> Connection:
-        return await asyncpg.connect(dsn)
+        try:
+            return await asyncpg.connect(dsn)
+        except Exception as exc:
+            if is_transient_postgres_error(exc):
+                raise_transient_postgres_error(exc, operation="connect")
+            raise
 
     async def get_pg_pool(self) -> asyncpg.pool.Pool:
         if self._pg_pool is None:
