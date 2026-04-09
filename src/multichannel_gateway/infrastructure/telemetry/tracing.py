@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 from sentry_sdk.integrations.opentelemetry import SentrySpanProcessor
 
-from multichannel_gateway.app.config import TelemetrySettings
+from src.multichannel_gateway.app import TelemetrySettings
 
 
 def setup_tracing(app: FastAPI, settings: TelemetrySettings) -> None:

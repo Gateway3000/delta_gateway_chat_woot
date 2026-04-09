@@ -124,7 +124,7 @@ The webhook specified in Chatwoot must follow the format:
 where:
 
 - `{channel}` is the name of the channel to which you send a message from Chatwoot (e.g., `telegram`). The channel name
-  must exactly match the `channel` attribute of the `IGateway` instance.
+  must exactly match the `channel` attribute of the `IChannel` instance.
 - `{cw_account_id}` is the identifier of your Chatwoot Account, which corresponds to the environment variable with the
   same name.
 
@@ -330,7 +330,7 @@ pre-commit run --all-files
 
 - `{channel}` - это имя
   канала, в который вы отправляете сообщение из Chatwoot (например, `telegram`). Имя канала должно строго совпадать с
-  атрибутом класса `channel` в экземпляре `IGateway`.
+  атрибутом класса `channel` в экземпляре `IChannel`.
 - `{cw_account_id}` - это идентификатор вашего Chatwoot Account,
   который соответствует одноименной переменной окружения.
 

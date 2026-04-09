@@ -2,7 +2,7 @@ import asyncio
 
 import uvicorn
 
-from src.multichannel_gateway.app.di import settings, pgmq, registry
+from src.multichannel_gateway.app.wiring import settings, pgmq, registry
 
 
 async def prepare_app() -> None:

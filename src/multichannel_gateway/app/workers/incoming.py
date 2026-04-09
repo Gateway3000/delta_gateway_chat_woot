@@ -3,40 +3,36 @@ from typing import Any
 import structlog
 from opentelemetry.trace import SpanKind
 
-from multichannel_gateway.core.name_generator import generate_username
-from src.multichannel_gateway.app.config import Settings
+from src.multichannel_gateway.app import Settings
 from src.multichannel_gateway.app.workers.base import BaseWorker
-from src.multichannel_gateway.core.interfaces.cw_client import IChatwootClient
-
-from src.multichannel_gateway.infrastructure.registry import GatewayRegistry
-from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
-from src.multichannel_gateway.infrastructure.telemetry.helpers import (
+from src.multichannel_gateway.core import generate_username
+from src.multichannel_gateway.core.interfaces import IChatwootClient
+from src.multichannel_gateway.infrastructure import PGMessageQueue
+from src.multichannel_gateway.infrastructure.telemetry import (
+    get_tracer,
     mark_span_ok,
     set_span_attributes,
 )
-from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
 logger = structlog.get_logger(__name__)
 tracer = get_tracer(__name__)
 
 
-class IncomingWorker(BaseWorker):
+class ChannelToChatwootWorker(BaseWorker):
     def __init__(
         self,
         settings: Settings,
-        mq: IMessageQueue,
+        mq: PGMessageQueue,
         cw_client: IChatwootClient,
         queue_name: str,
-        gateways: GatewayRegistry,
     ):
         super().__init__(mq, queue_name)
         self.settings = settings
         self._mq = mq
         self._queue_name = queue_name
         self._cwc = cw_client
-        self._gateways = gateways
 
-    async def _handle_message(self, message: dict[str, Any]) -> None:
+    async def _handle_message(self, payload: dict[str, Any]) -> None:
         """
         Contains the logic for processing messages from Gateway to Chatwoot.
 
@@ -47,20 +43,17 @@ class IncomingWorker(BaseWorker):
         with tracer.start_as_current_span(
             "incoming_worker.deliver_to_chatwoot", kind=SpanKind.INTERNAL
         ) as span:
-            channel = message["channel"]
-            gw = self._gateways.get_gateway(channel)
-
             name = generate_username()[0]
-            if not self.settings.anonymize_users and message["sender"]["name"]:
-                name = message["sender"]["name"]
+            if not self.settings.anonymize_users and payload["sender"]["name"]:
+                name = payload["sender"]["name"]
 
-            tid = message["sender"]["external_id"]
-            msg = message["payload"].get("text") or ""
-            attachments = message["payload"].get("attachments", [])
-            connector_id = message["connector_id"]
-            cw_account_id = message["cw_account_id"]
-            route = gw.get_route_by_connector_id(connector_id)
-            cw_inbox_id = route["cw_inbox_id"]
+            channel = payload["channel"]
+            tid = payload["sender"]["external_id"]
+            msg = payload["payload"].get("text") or ""
+            attachments = payload["payload"].get("attachments", [])
+            connector_id = payload["connector_id"]
+            cw_account_id = payload["cw_account_id"]
+            cw_inbox_id = payload["cw_inbox_id"]
 
             set_span_attributes(
                 span,

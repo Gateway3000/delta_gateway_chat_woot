@@ -4,13 +4,13 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from opentelemetry.trace import Span, Tracer, get_tracer
 
-from src.multichannel_gateway.app.di import registry
-from src.multichannel_gateway.core.exceptions import (
+from src.multichannel_gateway.app.wiring import registry
+from src.multichannel_gateway.core import (
     ConnectorNotFoundError,
-    WrongUpdateTypeError,
     IdempotencyKeyAlreadyProcessedError,
+    WrongUpdateTypeError,
 )
-from src.multichannel_gateway.infrastructure.telemetry.helpers import (
+from src.multichannel_gateway.infrastructure.telemetry import (
     build_webhook_attributes,
     mark_span_error,
     mark_span_ok,
@@ -33,9 +33,11 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
             build_webhook_attributes(channel, connector_id=connector_id),
         )
         raw_data = await request.json()
+        raw_data["channel"] = channel
+        raw_data["connector_id"] = connector_id
         try:
             gateway = registry.get_gateway(channel)
-            await gateway.process_inbound(raw_data, connector_id)
+            await gateway.process_inbound(raw_data)
             mark_span_ok(span)
         except Exception as e:
             if response := _handle_exceptions(e, span, raw_data):

@@ -1,10 +1,13 @@
 import asyncio
+import os
+from pathlib import Path
 from typing import AsyncGenerator, Any
 
 import asyncpg
 import pytest_asyncio
+from dotenv import dotenv_values
 
-from src.multichannel_gateway.app.di import (
+from src.multichannel_gateway.app.wiring import (
     incoming_worker,
     outgoing_worker,
     pgmq,
@@ -15,12 +18,32 @@ from src.multichannel_gateway.app.di import (
 from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
     ChatwootClient,
 )
-from telegram.dependencies import telegram_gateway
+from telegram.tg_wiring import telegram_channel
+
+
+def _assert_test_database_environment() -> None:
+    test_env_path = Path(__file__).resolve().parent.parent / ".test.env"
+    expected_db_name = dotenv_values(test_env_path).get("DB_NAME")
+    actual_db_name = os.environ.get("DB_NAME")
+
+    if not expected_db_name:
+        raise RuntimeError(f"DB_NAME is missing in {test_env_path}")
+
+    if actual_db_name != expected_db_name:
+        raise RuntimeError(
+            "Unsafe test database configuration: "
+            f"expected DB_NAME={expected_db_name!r} from {test_env_path.name}, "
+            f"got DB_NAME={actual_db_name!r}. "
+            "Refusing to start tests to avoid touching a non-test database."
+        )
+
+
+_assert_test_database_environment()
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def register_gateway() -> None:
-    registry.register_gateway(telegram_gateway)
+    registry.register_gateway(telegram_channel)
 
 
 @pytest_asyncio.fixture(scope="session")

@@ -3,7 +3,7 @@ from importlib.metadata import entry_points
 
 import structlog
 
-from src.multichannel_gateway.core.interfaces.gateway import IGateway
+from src.multichannel_gateway.core.interfaces import IChannel
 
 logger = structlog.get_logger(__name__)
 
@@ -16,9 +16,9 @@ class GatewayRegistry:
     """
 
     def __init__(self) -> None:
-        self._gateways: dict[str, IGateway] = {}
+        self._gateways: dict[str, IChannel] = {}
 
-    def register_gateway(self, gateway: IGateway) -> None:
+    def register_gateway(self, gateway: IChannel) -> None:
         """Registers a built-in gateway."""
         self._gateways[gateway.channel] = gateway
 
@@ -29,7 +29,7 @@ class GatewayRegistry:
             gateway = ep.load()
             self._gateways[gateway.channel] = gateway
 
-    def get_gateway(self, channel: str) -> IGateway:
+    def get_gateway(self, channel: str) -> IChannel:
         """Retrieves a gateway by its channel type."""
         if channel not in self._gateways:
             raise ValueError(f"Gateway for channel '{channel}' not found")

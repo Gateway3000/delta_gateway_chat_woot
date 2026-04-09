@@ -1,13 +1,12 @@
 import asyncio
 from typing import Any
 
-from aiogram import Dispatcher, Bot
 from aiogram.exceptions import (
     TelegramAPIError,
     TelegramNetworkError,
     TelegramRetryAfter,
 )
-from aiogram.types import Update, URLInputFile
+from aiogram.types import URLInputFile
 from aiohttp import ClientConnectorError, ServerDisconnectedError
 
 from src import DeliveryResult, Envelope
@@ -20,22 +19,12 @@ from telegram.tg_bot_manager import TelegramBotManager
 
 
 class TelegramTransport:
-    """Handles sending and receiving messages through Telegram bots.
+    """Handles sending messages to Telegram users."""
 
-    This class acts as a transport layer between the system and Telegram,
-    providing methods to send messages to users and feed inbound updates
-    into the dispatcher.
-    """
-
-    def __init__(self, bot_manager: TelegramBotManager, dp: Dispatcher):
+    def __init__(self, bot_manager: TelegramBotManager):
         self._bots = bot_manager
-        self._dp = dp
 
-    async def send_to_telegram(self, bot: Bot, raw_data: dict[str, Any]) -> None:
-        update = Update.model_validate(raw_data)
-        await self._dp.feed_update(bot, update)
-
-    async def send_to_user(
+    async def send_to_telegram_user(
         self, message: dict[str, Any], limiter: Any = asyncio.sleep
     ) -> DeliveryResult:
         envelope = Envelope.model_validate(message)

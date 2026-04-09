@@ -9,7 +9,11 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from telegram.dependencies import tg_settings
+from telegram.tg_wiring import tg_settings
+
+
+def _assert_delivery_confirmation_sent(mock_send_message: AsyncMock) -> None:
+    assert mock_send_message.await_count >= 1
 
 
 @pytest.mark.order(1)
@@ -35,13 +39,9 @@ async def test_telegram_chatwoot(
         "update_id": 353411705,
     }
 
-    # Mock two methods that depend on external infrastructure: Telegram and Chatwoot
-    mock_feed_update = AsyncMock()
+    mock_send_message = AsyncMock()
     mock_deliver_message = AsyncMock()
-    monkeypatch.setattr(
-        "aiogram.dispatcher.dispatcher.Dispatcher.feed_update",
-        mock_feed_update,
-    )
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
         "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
         mock_deliver_message,
@@ -61,8 +61,7 @@ async def test_telegram_chatwoot(
         processed_keys_res = await conn.fetchrow("SELECT * FROM pgmq.processed_keys")
 
     assert response.status_code == 204
-
-    mock_feed_update.assert_called_once()
+    _assert_delivery_confirmation_sent(mock_send_message)
     mock_deliver_message.assert_called_once()
 
     # Check that there are no records in the "q_to_cw" table, therefore, the worker deleted the record after
@@ -131,14 +130,11 @@ async def test_telegram_chatwoot_attachment(
         tmp_path = tmp.name
     os.path.getsize(tmp_path)
 
-    mock_feed_update = AsyncMock()
+    mock_send_message = AsyncMock()
     mock_deliver_message = AsyncMock()
     mock_notify = AsyncMock()
     mock_download = AsyncMock(return_value=(tmp_path, "photos/file_1.jpg"))
-    monkeypatch.setattr(
-        "aiogram.dispatcher.dispatcher.Dispatcher.feed_update",
-        mock_feed_update,
-    )
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
         "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
         mock_deliver_message,
@@ -163,7 +159,7 @@ async def test_telegram_chatwoot_attachment(
             await asyncio.sleep(1)
 
         assert response.status_code == 204
-        mock_feed_update.assert_called_once()
+        _assert_delivery_confirmation_sent(mock_send_message)
         mock_download.assert_called_once_with(
             ANY, tg_settings.bots_config[0].connector_id, "large_file"
         )
@@ -210,14 +206,11 @@ async def test_telegram_chatwoot_attachment_oversize_notifies_user(
         "update_id": 353411707,
     }
 
-    mock_feed_update = AsyncMock()
+    mock_send_message = AsyncMock()
     mock_deliver_message = AsyncMock()
     mock_notify = AsyncMock()
     mock_download = AsyncMock()
-    monkeypatch.setattr(
-        "aiogram.dispatcher.dispatcher.Dispatcher.feed_update",
-        mock_feed_update,
-    )
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
         "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
         mock_deliver_message,
@@ -241,6 +234,7 @@ async def test_telegram_chatwoot_attachment_oversize_notifies_user(
         await asyncio.sleep(1)
 
     assert response.status_code == 204
+    _assert_delivery_confirmation_sent(mock_send_message)
     mock_notify.assert_called_once_with(
         ANY,
         tg_settings.bots_config[0].connector_id,
@@ -303,14 +297,11 @@ async def test_telegram_chatwoot_multi_attachments_include_animation(
             filename = "anim.gif" if file_id == "gif_1" else "a.pdf"
             return tmp.name, f"uploads/{filename}"
 
-    mock_feed_update = AsyncMock()
+    mock_send_message = AsyncMock()
     mock_deliver_message = AsyncMock()
     mock_notify = AsyncMock()
     mock_download = AsyncMock(side_effect=_make_tmp_file)
-    monkeypatch.setattr(
-        "aiogram.dispatcher.dispatcher.Dispatcher.feed_update",
-        mock_feed_update,
-    )
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
         "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
         mock_deliver_message,
@@ -335,6 +326,7 @@ async def test_telegram_chatwoot_multi_attachments_include_animation(
             await asyncio.sleep(1)
 
         assert response.status_code == 204
+        _assert_delivery_confirmation_sent(mock_send_message)
         assert mock_download.await_count == 2
         mock_notify.assert_not_called()
 

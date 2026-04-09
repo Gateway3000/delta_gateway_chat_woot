@@ -9,29 +9,23 @@ from src import (
     IdempotencyKeyAlreadyProcessedError,
     ConnectorNotFoundError,
 )
-
-from telegram.tg_adapter import TelegramAdapter
 from telegram.plugin_settings import TelegramSettings
 from telegram.tg_attachments import prepare_inbound_attachments
 from telegram.tg_bot_manager import TelegramBotManager
+from telegram.tg_envelope_factory import TelegramEnvelopeFactory
 from telegram.tg_transport import TelegramTransport
 
 logger = structlog.get_logger(__name__)
 
 
-class TelegramIOProcessor:
-    """Subsystem for processing inbound and outbound Telegram messages.
-
-    This class is responsible for handling the full lifecycle of Telegram message
-    exchange — receiving, normalizing, routing, and delivering messages between
-    the Telegram channel and internal systems (e.g., Chatwoot or Gateway).
-    """
+class TelegramMessageProcessor:
+    """Processes inbound and outbound Telegram messages."""
 
     def __init__(
         self,
         bot_manager: TelegramBotManager,
         transport: TelegramTransport,
-        adapter: TelegramAdapter,
+        envelope_factory: TelegramEnvelopeFactory,
         settings: TelegramSettings,
         mq: PGMessageQueue,
         incoming_queue_name: str,
@@ -39,16 +33,23 @@ class TelegramIOProcessor:
     ) -> None:
         self._bot_manager = bot_manager
         self._transport = transport
-        self._adapter = adapter
+        self._envelope_factory = envelope_factory
         self._settings = settings
         self._mq = mq
         self._iqn = incoming_queue_name
         self._oqn = outgoing_queue_name
 
-    async def process_inbound(
-        self, raw_data: dict[str, Any], connector_id: str, channel: str
-    ) -> None:
-        idempotency_key, envelope = self._adapter.parse_channel_request(
+    @staticmethod
+    async def _send_delivery_confirmation(bot: Bot, raw_data: dict[str, Any]) -> None:
+        await bot.send_message(
+            chat_id=raw_data["message"]["chat"]["id"],
+            text="Your message was sent successfully!",
+        )
+
+    async def process_inbound(self, raw_data: dict[str, Any]) -> None:
+        connector_id = str(raw_data["connector_id"])
+        channel = str(raw_data["channel"])
+        idempotency_key, envelope = self._envelope_factory.parse_channel_request(
             raw_data, connector_id, channel
         )
         bot = self._get_required_bot(connector_id)
@@ -60,7 +61,7 @@ class TelegramIOProcessor:
             )
             envelope = Envelope.model_validate(prepared_payload)
             await self._process_queue(self._iqn, idempotency_key, envelope)
-            await self._transport.send_to_telegram(bot, raw_data)
+            await self._send_delivery_confirmation(bot, raw_data)
         else:
             raise IdempotencyKeyAlreadyProcessedError(
                 "Idempotency key has already been processed."
@@ -69,7 +70,7 @@ class TelegramIOProcessor:
     async def process_outbound(
         self, raw_data: dict[str, Any], cw_account_id: str, channel: str
     ) -> None:
-        idempotency_key, envelope = self._adapter.parse_chatwoot_request(
+        idempotency_key, envelope = self._envelope_factory.parse_chatwoot_request(
             raw_data, cw_account_id, channel
         )
 

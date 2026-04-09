@@ -7,18 +7,16 @@ from typing import Any
 import structlog
 from opentelemetry.trace import SpanKind
 
-from src.multichannel_gateway.core.exceptions import TransientError, FatalError
-from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
-from src.multichannel_gateway.infrastructure.telemetry.helpers import (
+from src.multichannel_gateway.core import FatalError, TransientError
+from src.multichannel_gateway.infrastructure import PGMessageQueue
+from src.multichannel_gateway.infrastructure.telemetry import (
     build_worker_message_attributes,
+    extract_trace_context,
     mark_span_error,
     mark_span_ok,
     set_span_attributes,
+    get_tracer,
 )
-from src.multichannel_gateway.infrastructure.telemetry.propagation import (
-    extract_trace_context,
-)
-from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
 logger = structlog.get_logger(__name__)
 tracer = get_tracer(__name__)
@@ -27,7 +25,7 @@ tracer = get_tracer(__name__)
 class BaseWorker:
     def __init__(
         self,
-        mq: IMessageQueue,
+        mq: PGMessageQueue,
         queue_name: str,
         vt_seconds: int = 30,
         read_timeout: float = 10,
@@ -158,46 +156,73 @@ class BaseWorker:
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
     async def _process_wrapper(self, msg: dict[str, Any]) -> None:
+        msg_id, attempts, payload, parent_context = self._prepare_message(msg)
+        await self._process_message(msg_id, attempts, payload, parent_context)
+
+    def _prepare_message(
+        self, msg: dict[str, Any]
+    ) -> tuple[int, int, dict[str, Any], Any | None]:
         msg_id = msg["msg_id"]
-        payload = msg["message"]
         attempts = msg.get("read_ct", 0)
+        payload = msg["message"]
 
         try:
-            if isinstance(payload, str):
-                payload = json.loads(payload)
-            else:
-                raise ValueError("payload must be a string")
-
-            if not isinstance(payload, dict):
-                raise ValueError("payload must decode to a JSON object")
-
-            parent_context, payload = extract_trace_context(payload)
+            payload_dict = self._decode_payload(payload)
+            parent_context, prepared_payload = extract_trace_context(payload_dict)
         except Exception as exc:
-            with tracer.start_as_current_span(
-                "worker.message.process", kind=SpanKind.CONSUMER
-            ) as span:
-                set_span_attributes(
-                    span,
-                    build_worker_message_attributes(
-                        self._worker_name, self._queue_name, msg_id, attempts
-                    ),
-                )
-                mark_span_error(span, exc)
+            self._mark_message_parse_error(msg_id, attempts, exc)
             raise
+
+        return msg_id, attempts, prepared_payload, parent_context
+
+    @staticmethod
+    def _decode_payload(payload: Any) -> dict[str, Any]:
+        if not isinstance(payload, str):
+            raise ValueError("payload must be a string")
+
+        decoded_payload = json.loads(payload)
+        if not isinstance(decoded_payload, dict):
+            raise ValueError("payload must decode to a JSON object")
+        return decoded_payload
+
+    def _mark_message_parse_error(
+        self, msg_id: int, attempts: int, exc: Exception
+    ) -> None:
+        with tracer.start_as_current_span(
+            "worker.message.process", kind=SpanKind.CONSUMER
+        ) as span:
+            set_span_attributes(
+                span,
+                build_worker_message_attributes(
+                    self._worker_name, self._queue_name, msg_id, attempts
+                ),
+            )
+            mark_span_error(span, exc)
+
+    async def _process_message(
+        self,
+        msg_id: int,
+        attempts: int,
+        payload: dict[str, Any],
+        parent_context: Any | None,
+    ) -> None:
+        message_attributes = build_worker_message_attributes(
+            self._worker_name,
+            self._queue_name,
+            msg_id,
+            attempts,
+            payload,
+        )
+        read_attributes = {
+            **message_attributes,
+            "messaging.operation": "receive",
+        }
 
         with tracer.start_as_current_span(
             "worker.queue.read",
             kind=SpanKind.CONSUMER,
             context=parent_context,
         ) as read_span:
-            read_attributes = build_worker_message_attributes(
-                self._worker_name,
-                self._queue_name,
-                msg_id,
-                attempts,
-                payload,
-            )
-            read_attributes["messaging.operation"] = "receive"
             set_span_attributes(read_span, read_attributes)
             read_span.set_attribute(
                 "messaging.trace_context.propagated",
@@ -207,32 +232,32 @@ class BaseWorker:
             with tracer.start_as_current_span(
                 "worker.message.process", kind=SpanKind.INTERNAL
             ) as span:
-                set_span_attributes(
-                    span,
-                    build_worker_message_attributes(
-                        self._worker_name,
-                        self._queue_name,
-                        msg_id,
-                        attempts,
-                        payload,
-                    ),
-                )
+                set_span_attributes(span, message_attributes)
 
                 try:
                     outcome, handled_error = await self._handle_with_retries(
                         msg_id, payload, attempts
                     )
-                    span.set_attribute("worker.message.outcome", outcome)
-                    if handled_error is not None:
-                        mark_span_error(span, handled_error)
-                        mark_span_error(read_span, handled_error)
-                    else:
-                        mark_span_ok(span)
-                        mark_span_ok(read_span)
+                    self._apply_processing_result(
+                        span, read_span, outcome, handled_error
+                    )
                 except Exception as exc:
                     mark_span_error(span, exc)
                     mark_span_error(read_span, exc)
                     raise
+
+    @staticmethod
+    def _apply_processing_result(
+        span: Any, read_span: Any, outcome: str, handled_error: Exception | None
+    ) -> None:
+        span.set_attribute("worker.message.outcome", outcome)
+        if handled_error is None:
+            mark_span_ok(span)
+            mark_span_ok(read_span)
+            return
+
+        mark_span_error(span, handled_error)
+        mark_span_error(read_span, handled_error)
 
     async def _handle_with_retries(
         self, msg_id: int, payload: dict[str, Any], attempts: int
@@ -292,7 +317,7 @@ class BaseWorker:
                 return "archived_max_attempts"
         return "left_visible"
 
-    async def _handle_message(self, message: dict[str, Any]) -> None:
+    async def _handle_message(self, payload: dict[str, Any]) -> None:
         """
         Process a single message.
 

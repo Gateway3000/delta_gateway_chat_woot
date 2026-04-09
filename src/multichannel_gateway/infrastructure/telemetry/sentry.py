@@ -4,7 +4,7 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 
-from multichannel_gateway.app.config import TelemetrySettings
+from src.multichannel_gateway.app import TelemetrySettings
 
 
 def setup_sentry(settings: TelemetrySettings) -> None:

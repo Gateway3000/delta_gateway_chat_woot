@@ -27,12 +27,6 @@ class TelegramRouting:
             raise ValueError(f"Invalid connector_id: {connector_id}")
         return cw_account
 
-    def get_connector_id(self, cw_account_id: str) -> str:
-        connector_id = self._connectors.get(cw_account_id)
-        if connector_id is None:
-            raise ValueError(f"Invalid cw_account_id: {cw_account_id}")
-        return connector_id
-
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
         return {
             "connector_id": connector_id,

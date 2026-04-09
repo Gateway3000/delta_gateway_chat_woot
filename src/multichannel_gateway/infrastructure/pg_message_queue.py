@@ -10,24 +10,21 @@ import structlog
 from asyncpg import Connection
 from opentelemetry.trace import SpanKind
 
-from src.multichannel_gateway.app.config import Settings
-from src.multichannel_gateway.core.interfaces.message_queue import IMessageQueue
+from src.multichannel_gateway.app import Settings
 from src.multichannel_gateway.infrastructure.pg_conn_manager import ConnManager
-from src.multichannel_gateway.infrastructure.telemetry.helpers import (
+from src.multichannel_gateway.infrastructure.telemetry import (
+    get_tracer,
+    inject_trace_context,
     mark_span_error,
     mark_span_ok,
     set_span_attributes,
 )
-from src.multichannel_gateway.infrastructure.telemetry.propagation import (
-    inject_trace_context,
-)
-from src.multichannel_gateway.infrastructure.telemetry.tracing import get_tracer
 
 logger = structlog.get_logger(__name__)
 tracer = get_tracer(__name__)
 
 
-class PGMessageQueue(IMessageQueue):
+class PGMessageQueue:
     def __init__(self, settings: Settings, conn_manager: ConnManager) -> None:
         self.settings = settings
         self._conn_manager = conn_manager
