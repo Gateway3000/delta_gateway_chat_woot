@@ -2,12 +2,13 @@ import asyncio
 
 import uvicorn
 
+from src.multichannel_gateway.app.utils import wait_until_database_ready
 from src.multichannel_gateway.app.wiring import settings, pgmq, registry
 
 
 async def prepare_app() -> None:
     prefork_tasks = asyncio.create_task(registry.on_prefork())
-    ensure_db_task = asyncio.create_task(pgmq.ensure_database_ready())
+    ensure_db_task = asyncio.create_task(wait_until_database_ready(pgmq))
     await asyncio.gather(prefork_tasks, ensure_db_task)
 
 
