@@ -22,7 +22,7 @@ from .infrastructure import (
     ConnManager,
     ContactInfo,
     ContactSearchResult,
-    GatewayRegistry,
+    ChannelRegistry,
     HTTPSessionManager,
     PGMessageQueue,
 )
@@ -39,7 +39,7 @@ __all__ = [
     "Envelope",
     "Environment",
     "FatalError",
-    "GatewayRegistry",
+    "ChannelRegistry",
     "HTTPSessionManager",
     "IChatwootClient",
     "IChannel",

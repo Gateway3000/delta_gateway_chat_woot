@@ -37,8 +37,8 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
         raw_data["channel"] = channel
         raw_data["connector_id"] = connector_id
         try:
-            gateway = registry.get_gateway(channel)
-            await gateway.process_inbound(raw_data)
+            channel_ = registry.get_channel(channel)
+            await channel_.process_inbound(raw_data)
             mark_span_ok(span)
         except Exception as e:
             if response := _handle_exceptions(e, span, raw_data):
@@ -60,8 +60,8 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
         raw_data = await request.json()
         if raw_data.get("message_type") == "outgoing":
             try:
-                gateway = registry.get_gateway(channel)
-                await gateway.process_outbound(raw_data, cw_account_id)
+                channel_ = registry.get_channel(channel)
+                await channel_.process_outbound(raw_data, cw_account_id)
                 mark_span_ok(span)
             except Exception as e:
                 if response := _handle_exceptions(e, span, raw_data):

@@ -8,59 +8,57 @@ from src.multichannel_gateway.core.interfaces import IChannel
 logger = structlog.get_logger(__name__)
 
 
-class GatewayRegistry:
-    """Registry for managing communication channel gateways.
+class ChannelRegistry:
+    """Registry for managing communication channels.
 
-    This class allows registering, discovering, and retrieving gateways
+    This class allows registering, discovering, and retrieving channels
     by their channel type.
     """
 
     def __init__(self) -> None:
-        self._gateways: dict[str, IChannel] = {}
+        self._channels: dict[str, IChannel] = {}
 
-    def register_gateway(self, gateway: IChannel) -> None:
-        """Registers a built-in gateway."""
-        self._gateways[gateway.channel] = gateway
+    def register_channel(self, channel: IChannel) -> None:
+        """Registers a built-in channel."""
+        self._channels[channel.channel] = channel
 
-    def discover_gateways(self, group: str) -> None:
-        """Automatically discovers gateways using entry points."""
+    def discover_channels(self, group: str) -> None:
+        """Automatically discovers channels using entry points."""
         eps = entry_points().select(group=group)
         for ep in eps:  # ep: EntryPoint
-            gateway = ep.load()
-            self._gateways[gateway.channel] = gateway
+            channel = ep.load()
+            self._channels[channel.channel] = channel
 
-    def get_gateway(self, channel: str) -> IChannel:
-        """Retrieves a gateway by its channel type."""
-        if channel not in self._gateways:
-            raise ValueError(f"Gateway for channel '{channel}' not found")
-        return self._gateways[channel]
+    def get_channel(self, channel: str) -> IChannel:
+        """Retrieves a channel by its channel type."""
+        if channel not in self._channels:
+            raise ValueError(f"Channel '{channel}' not found")
+        return self._channels[channel]
 
     async def on_startup(self) -> None:
-        """Performs startup tasks for all registered gateways during FastAPI lifespan.
+        """Performs startup tasks for all registered channels during FastAPI lifespan.
 
         This method is typically used to prepare all communication channels before the
         FastAPI application starts.
         """
         tasks = []
-        for gateway in self._gateways.values():
-            startup_task = asyncio.create_task(gateway.on_startup())
+        for channel in self._channels.values():
+            startup_task = asyncio.create_task(channel.on_startup())
             tasks.append(startup_task)
-            logger.debug(f'Initializing gateway for channel "{gateway.channel}"...')
+            logger.debug(f'Initializing channel "{channel.channel}"...')
         await asyncio.gather(*tasks)
 
     async def on_shutdown(self) -> None:
-        """Performs shutdown tasks for all registered gateways during FastAPI lifespan.
+        """Performs shutdown tasks for all registered channels during FastAPI lifespan.
 
         This method is typically used to gracefully close all communication channels
         when the FastAPI application is shutting down.
         """
         tasks = []
-        for gateway in self._gateways.values():
-            shutdown_task = asyncio.create_task(gateway.on_shutdown())
+        for channel in self._channels.values():
+            shutdown_task = asyncio.create_task(channel.on_shutdown())
             tasks.append(shutdown_task)
-            logger.info(
-                f'Initiating shutdown for gateway on channel "{gateway.channel}"...'
-            )
+            logger.info(f'Initiating shutdown for channel "{channel.channel}"...')
         await asyncio.gather(*tasks)
 
     async def on_prefork(self) -> None:
@@ -71,8 +69,8 @@ class GatewayRegistry:
         prepared for multiprocess execution.
         """
         tasks = []
-        for gateway in self._gateways.values():
-            prefork_task = asyncio.create_task(gateway.on_prefork())
+        for channel in self._channels.values():
+            prefork_task = asyncio.create_task(channel.on_prefork())
             tasks.append(prefork_task)
-            logger.debug(f'Executing prefork for channel "{gateway.channel}"...')
+            logger.debug(f'Executing prefork for channel "{channel.channel}"...')
         await asyncio.gather(*tasks)

@@ -43,7 +43,7 @@ _assert_test_database_environment()
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def register_gateway() -> None:
-    registry.register_gateway(telegram_channel)
+    registry.register_channel(telegram_channel)
 
 
 @pytest_asyncio.fixture(scope="session")

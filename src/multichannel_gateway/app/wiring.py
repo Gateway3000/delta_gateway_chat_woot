@@ -6,7 +6,7 @@ from src.multichannel_gateway.app.workers import (
 from src.multichannel_gateway.infrastructure import (
     ChatwootClient,
     ConnManager,
-    GatewayRegistry,
+    ChannelRegistry,
     HTTPSessionManager,
     PGMessageQueue,
 )
@@ -24,7 +24,7 @@ cwc: ChatwootClient = ChatwootClient(
     settings.chatwoot_access_token, settings.chatwoot_base_url, cw_session_manager
 )
 
-registry: GatewayRegistry = GatewayRegistry()
+registry: ChannelRegistry = ChannelRegistry()
 
 incoming_worker: ChannelToChatwootWorker = ChannelToChatwootWorker(
     settings, pgmq, cwc, settings.incoming_queue_name
