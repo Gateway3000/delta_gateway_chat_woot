@@ -1,6 +1,6 @@
 from typing import Any
 
-from src import IChannel, DeliveryResult
+from src import IChannel, DeliveryResult, Envelope
 from telegram.tg_bot_manager import TelegramBotManager
 from telegram.tg_message_processor import TelegramMessageProcessor
 from telegram.tg_routing import TelegramRouting
@@ -39,8 +39,20 @@ class TelegramChannel(IChannel):
     ) -> DeliveryResult:
         return await self._transport.send_to_telegram_user(message)
 
-    async def process_inbound(self, raw_data: dict[str, Any]) -> None:
-        await self._io_processor.process_inbound(raw_data)
+    async def build_channel_message(
+        self, raw_data: dict[str, Any]
+    ) -> tuple[str, Envelope]:
+        return await self._io_processor.build_channel_message(raw_data)
+
+    async def publish_channel_message(
+        self,
+        idempotency_key: str,
+        envelope: Envelope,
+        raw_data: dict[str, Any],
+    ) -> None:
+        await self._io_processor.publish_channel_message(
+            idempotency_key, envelope, raw_data
+        )
 
     async def process_outbound(
         self, raw_data: dict[str, Any], cw_account_id: str

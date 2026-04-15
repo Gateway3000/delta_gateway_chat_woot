@@ -4,7 +4,10 @@ from fastapi.requests import Request
 from fastapi.responses import Response
 from opentelemetry.trace import Span, Tracer, get_tracer
 
-from src.multichannel_gateway.app.wiring import registry
+from src.multichannel_gateway.app.wiring import (
+    channel_to_chatwoot_orchestrator,
+    registry,
+)
 from src.multichannel_gateway.core import (
     ConnectorNotFoundError,
     IdempotencyKeyAlreadyProcessedError,
@@ -37,8 +40,7 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
         raw_data["channel"] = channel
         raw_data["connector_id"] = connector_id
         try:
-            channel_ = registry.get_channel(channel)
-            await channel_.process_inbound(raw_data)
+            await channel_to_chatwoot_orchestrator.process(channel, raw_data)
             mark_span_ok(span)
         except Exception as e:
             if response := _handle_exceptions(e, span, raw_data):
