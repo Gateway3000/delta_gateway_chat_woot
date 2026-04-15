@@ -8,7 +8,7 @@ from typing import Any
 import structlog
 from aiogram.exceptions import TelegramBadRequest
 
-from src.multichannel_gateway.core.attachments import LocalFileAttachment
+from src.multichannel_gateway.core.attachment_models import LocalFileAttachment
 from telegram.plugin_settings import TelegramSettings
 from telegram.tg_bot_manager import TelegramBotManager
 

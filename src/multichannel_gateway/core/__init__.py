@@ -1,4 +1,8 @@
-from .attachments import ChatwootAttachment, LocalFileAttachment, UploadedAttachment
+from .attachment_models import (
+    ChatwootAttachment,
+    LocalFileAttachment,
+    UploadedAttachment,
+)
 from .core_models import DeliveryResult, Envelope, SenderInfo, SenderInfoKey
 from .exceptions import (
     ConnectorNotFoundError,

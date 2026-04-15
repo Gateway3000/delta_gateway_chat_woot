@@ -7,7 +7,7 @@ import pytest
 from aioresponses import aioresponses
 from aioresponses.core import CallbackResult
 
-from src.multichannel_gateway.core.attachments import LocalFileAttachment
+from src.multichannel_gateway.core.attachment_models import LocalFileAttachment
 from src.multichannel_gateway.core.exceptions import FatalError, TransientError
 from src.multichannel_gateway.infrastructure.chatwoot_client.cw_client import (
     ChatwootClient,

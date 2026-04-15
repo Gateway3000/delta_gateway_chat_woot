@@ -8,7 +8,7 @@ from aiohttp import ClientError, ClientResponse
 from aiohttp.client_exceptions import ContentTypeError
 from pydantic import TypeAdapter
 
-from src.multichannel_gateway.core.attachments import (
+from src.multichannel_gateway.core.attachment_models import (
     ChatwootAttachment,
     LocalFileAttachment,
     UploadedAttachment,
