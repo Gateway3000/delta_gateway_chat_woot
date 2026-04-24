@@ -46,26 +46,32 @@ class TelegramMessageProcessor:
             text="Your message was sent successfully!",
         )
 
-    async def process_inbound(self, raw_data: dict[str, Any]) -> None:
+    async def build_channel_message(
+        self, raw_data: dict[str, Any]
+    ) -> tuple[str, Envelope]:
         connector_id = str(raw_data["connector_id"])
         channel = str(raw_data["channel"])
         idempotency_key, envelope = self._envelope_factory.parse_channel_request(
             raw_data, connector_id, channel
         )
-        bot = self._get_required_bot(connector_id)
-        if not await self._is_already_processed(idempotency_key):
-            prepared_payload = await prepare_inbound_attachments(
-                envelope.model_dump(mode="json"),
-                bot_manager=self._bot_manager,
-                settings=self._settings,
-            )
-            envelope = Envelope.model_validate(prepared_payload)
-            await self._process_queue(self._iqn, idempotency_key, envelope)
-            await self._send_delivery_confirmation(bot, raw_data)
-        else:
+        prepared_payload = await prepare_inbound_attachments(
+            envelope.model_dump(mode="json"),
+            bot_manager=self._bot_manager,
+            settings=self._settings,
+        )
+        return idempotency_key, Envelope.model_validate(prepared_payload)
+
+    async def publish_channel_message(
+        self, idempotency_key: str, envelope: Envelope, raw_data: dict[str, Any]
+    ) -> None:
+        bot = self._get_required_bot(str(raw_data["connector_id"]))
+        if await self._is_already_processed(idempotency_key):
             raise IdempotencyKeyAlreadyProcessedError(
                 "Idempotency key has already been processed."
             )
+
+        await self._process_queue(self._iqn, idempotency_key, envelope)
+        await self._send_delivery_confirmation(bot, raw_data)
 
     async def process_outbound(
         self, raw_data: dict[str, Any], cw_account_id: str, channel: str

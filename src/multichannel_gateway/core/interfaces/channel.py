@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from src.multichannel_gateway.core import DeliveryResult
+from src.multichannel_gateway.core import DeliveryResult, Envelope
 
 
 class IChannel(ABC):
@@ -29,8 +29,19 @@ class IChannel(ABC):
         """Sends a message to the end user via the specified channel."""
 
     @abstractmethod
-    async def process_inbound(self, raw_data: dict[str, Any]) -> None:
-        """Processes an inbound message received from an external channel."""
+    async def build_channel_message(
+        self, raw_data: dict[str, Any]
+    ) -> tuple[str, Envelope]:
+        """Builds a Channel -> Chatwoot message from raw channel payload."""
+
+    @abstractmethod
+    async def publish_channel_message(
+        self,
+        idempotency_key: str,
+        envelope: Envelope,
+        raw_data: dict[str, Any],
+    ) -> None:
+        """Publishes a prepared Channel -> Chatwoot message for delivery."""
 
     @abstractmethod
     async def process_outbound(

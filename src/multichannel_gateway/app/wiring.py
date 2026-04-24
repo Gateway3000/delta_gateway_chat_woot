@@ -1,4 +1,5 @@
 from src.multichannel_gateway.app import Settings, TelemetrySettings
+from src.multichannel_gateway.app.services import ChannelToChatwootOrchestrator
 from src.multichannel_gateway.app.workers import (
     ChannelToChatwootWorker,
     ChatwootToChannelWorker,
@@ -25,9 +26,12 @@ cwc: ChatwootClient = ChatwootClient(
 )
 
 registry: ChannelRegistry = ChannelRegistry()
+channel_to_chatwoot_orchestrator: ChannelToChatwootOrchestrator = (
+    ChannelToChatwootOrchestrator(registry, settings.anonymize_users)
+)
 
 incoming_worker: ChannelToChatwootWorker = ChannelToChatwootWorker(
-    settings, pgmq, cwc, settings.incoming_queue_name
+    pgmq, cwc, settings.incoming_queue_name
 )
 outgoing_worker: ChatwootToChannelWorker = ChatwootToChannelWorker(
     pgmq, settings.outgoing_queue_name, registry
