@@ -46,13 +46,14 @@ dev = [
     "httpx==0.28.1",
     "aioresponses==0.7.8",
     "pysentry-rs==0.4.3",
+    "testcontainers[postgres]==4.10.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-ras"
-env_files = [".test.env"]
+env_files = [".env.test"]
 log_cli = true
 log_cli_format = "%(message)s"
 log_cli_level = "DEBUG"
