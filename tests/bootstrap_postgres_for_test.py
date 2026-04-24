@@ -42,7 +42,7 @@ def bootstrap_postgres() -> PostgresContainer | None:
 
 
 def _assert_test_database_environment() -> None:
-    test_env_path = Path(__file__).resolve().parent.parent / ".test.env"
+    test_env_path = Path(__file__).resolve().parent.parent / ".env.test"
     expected_db_name = dotenv_values(test_env_path).get("DB_NAME")
     actual_db_name = os.environ.get("DB_NAME")
 
