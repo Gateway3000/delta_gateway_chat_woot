@@ -6,7 +6,7 @@ class TelegramRouting:
 
     This class provides bidirectional mapping between `connector_id` and `cw_account_id`
     based on the bot configuration. It is used by the Gateway and related components
-    to resolve message routes for inbound and outbound communication.
+    to resolve routes for Telegram -> Chatwoot and Chatwoot -> Telegram flows.
     """
 
     def __init__(self, bots_config: list[BotConfig]):

@@ -10,7 +10,7 @@ from src import (
     ConnectorNotFoundError,
 )
 from telegram.plugin_settings import TelegramSettings
-from telegram.tg_attachments import prepare_inbound_attachments
+from telegram.tg_attachments import prepare_telegram_to_chatwoot_attachments
 from telegram.tg_bot_manager import TelegramBotManager
 from telegram.tg_envelope_factory import TelegramEnvelopeFactory
 from telegram.tg_transport import TelegramTransport
@@ -19,7 +19,7 @@ logger = structlog.get_logger(__name__)
 
 
 class TelegramMessageProcessor:
-    """Processes inbound and outbound Telegram messages."""
+    """Processes Telegram->Chatwoot and Chatwoot->Telegram messages."""
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class TelegramMessageProcessor:
         idempotency_key, envelope = self._envelope_factory.parse_channel_request(
             raw_data, connector_id, channel
         )
-        prepared_payload = await prepare_inbound_attachments(
+        prepared_payload = await prepare_telegram_to_chatwoot_attachments(
             envelope.model_dump(mode="json"),
             bot_manager=self._bot_manager,
             settings=self._settings,
@@ -73,7 +73,7 @@ class TelegramMessageProcessor:
         await self._process_queue(self._iqn, idempotency_key, envelope)
         await self._send_delivery_confirmation(bot, raw_data)
 
-    async def process_outbound(
+    async def publish_chatwoot_message(
         self, raw_data: dict[str, Any], cw_account_id: str, channel: str
     ) -> None:
         idempotency_key, envelope = self._envelope_factory.parse_chatwoot_request(

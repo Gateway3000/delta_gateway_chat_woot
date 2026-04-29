@@ -5,10 +5,10 @@ from src.multichannel_gateway.core import ChatwootAttachment
 
 class IChatwootClient(ABC):
     @abstractmethod
-    async def deliver_message(
+    async def deliver_channel_to_chatwoot_message(
         self,
         account_id: int,
-        identifier: str,
+        end_user_id: str,
         inbox_id: int,
         content: str,
         name: str | None = None,

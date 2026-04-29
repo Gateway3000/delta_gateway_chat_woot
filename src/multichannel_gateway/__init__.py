@@ -2,8 +2,8 @@ from .app import Environment, Settings, TelemetrySettings
 from .app.workers import BaseWorker, ChannelToChatwootWorker, ChatwootToChannelWorker
 from .core import (
     ChatwootAttachment,
+    ChannelDeliveryResult,
     ConnectorNotFoundError,
-    DeliveryResult,
     Envelope,
     FatalError,
     IdempotencyKeyAlreadyProcessedError,
@@ -35,7 +35,7 @@ __all__ = [
     "ConnectorNotFoundError",
     "ContactInfo",
     "ContactSearchResult",
-    "DeliveryResult",
+    "ChannelDeliveryResult",
     "Envelope",
     "Environment",
     "FatalError",

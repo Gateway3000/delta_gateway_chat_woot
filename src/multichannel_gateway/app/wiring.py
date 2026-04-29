@@ -30,9 +30,9 @@ channel_to_chatwoot_orchestrator: ChannelToChatwootOrchestrator = (
     ChannelToChatwootOrchestrator(registry, settings.anonymize_users)
 )
 
-incoming_worker: ChannelToChatwootWorker = ChannelToChatwootWorker(
+channel_to_cw_worker: ChannelToChatwootWorker = ChannelToChatwootWorker(
     pgmq, cwc, settings.incoming_queue_name
 )
-outgoing_worker: ChatwootToChannelWorker = ChatwootToChannelWorker(
+cw_to_channel_worker: ChatwootToChannelWorker = ChatwootToChannelWorker(
     pgmq, settings.outgoing_queue_name, registry
 )

@@ -1,6 +1,6 @@
 from .base import BaseWorker
-from .incoming import ChannelToChatwootWorker
-from .outgoing import ChatwootToChannelWorker
+from .from_chatwoot import ChatwootToChannelWorker
+from .to_chatwoot import ChannelToChatwootWorker
 
 __all__ = [
     "BaseWorker",

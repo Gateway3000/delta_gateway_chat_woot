@@ -8,7 +8,7 @@ from aiogram.methods import GetFile
 from telegram.plugin_settings import TelegramSettings
 from telegram.tg_attachments import (
     extract_telegram_attachments,
-    prepare_inbound_attachments,
+    prepare_telegram_to_chatwoot_attachments,
 )
 
 
@@ -85,7 +85,7 @@ class TestTelegramAttachmentExtraction:
         assert extract_telegram_attachments({"message": {"text": "hello"}}) == []
 
 
-class TestPrepareInboundAttachments:
+class TestPrepareChannelToChatwootAttachments:
     @staticmethod
     def _build_settings(
         *,
@@ -107,7 +107,7 @@ class TestPrepareInboundAttachments:
         bot_manager = Mock()
         message = {"payload": {"text": "hello", "attachments": []}}
 
-        prepared = await prepare_inbound_attachments(
+        prepared = await prepare_telegram_to_chatwoot_attachments(
             message,
             bot_manager=bot_manager,
             settings=settings,
@@ -151,7 +151,7 @@ class TestPrepareInboundAttachments:
             },
         }
 
-        prepared = await prepare_inbound_attachments(
+        prepared = await prepare_telegram_to_chatwoot_attachments(
             message,
             bot_manager=bot_manager,
             settings=settings,
@@ -200,7 +200,7 @@ class TestPrepareInboundAttachments:
             },
         }
 
-        prepared = await prepare_inbound_attachments(
+        prepared = await prepare_telegram_to_chatwoot_attachments(
             message,
             bot_manager=bot_manager,
             settings=settings,
@@ -248,7 +248,7 @@ class TestPrepareInboundAttachments:
             },
         }
 
-        prepared = await prepare_inbound_attachments(
+        prepared = await prepare_telegram_to_chatwoot_attachments(
             message,
             bot_manager=bot_manager,
             settings=settings,

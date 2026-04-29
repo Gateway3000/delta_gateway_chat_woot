@@ -37,12 +37,12 @@ class ChannelToChatwootWorker(BaseWorker):
           - Raise `FatalError` for non-retryable 4xx responses.
         """
         with tracer.start_as_current_span(
-            "incoming_worker.deliver_to_chatwoot", kind=SpanKind.INTERNAL
+            "worker.channel_to_chatwoot.deliver", kind=SpanKind.INTERNAL
         ) as span:
             channel = payload["channel"]
-            tid = payload["sender"]["external_id"]
+            end_user_id = payload["sender"]["external_id"]
             name = payload["sender"].get("name")
-            msg = payload["payload"].get("text") or ""
+            message_text = payload["payload"].get("text") or ""
             attachments = payload["payload"].get("attachments", [])
             connector_id = payload["connector_id"]
             cw_account_id = payload["cw_account_id"]
@@ -55,30 +55,30 @@ class ChannelToChatwootWorker(BaseWorker):
                     "connector_id": connector_id,
                     "cw.account_id": cw_account_id,
                     "cw.inbox_id": cw_inbox_id,
-                    "enduser.id": tid,
+                    "enduser.id": end_user_id,
                     "message.attachments_count": len(attachments),
                 },
             )
 
-            if msg or attachments:
-                await self._cwc.deliver_message(
+            if message_text or attachments:
+                await self._cwc.deliver_channel_to_chatwoot_message(
                     account_id=int(cw_account_id),
-                    identifier=str(tid),
+                    end_user_id=str(end_user_id),
                     inbox_id=int(cw_inbox_id),
-                    content=msg,
+                    content=message_text,
                     name=name,
                     attachments=attachments or None,
                 )
             else:
                 logger.warning(
                     "Skipping empty message after failed attachments",
-                    sender_id=str(tid),
+                    sender_id=str(end_user_id),
                 )
             mark_span_ok(span)
             logger.debug(
-                "Incoming message delivered to Chatwoot",
+                "Channel message delivered to Chatwoot",
                 channel=channel,
                 connector_id=connector_id,
                 cw_account_id=cw_account_id,
-                enduser_id=tid,
+                enduser_id=end_user_id,
             )

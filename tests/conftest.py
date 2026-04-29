@@ -18,8 +18,8 @@ async def postgres_container() -> AsyncGenerator[PostgresContainer | None, None]
 
 
 from src.multichannel_gateway.app.wiring import (  # noqa: E402
-    incoming_worker,
-    outgoing_worker,
+    channel_to_cw_worker,
+    cw_to_channel_worker,
     pgmq,
     conn_manager,
     registry,
@@ -42,8 +42,8 @@ async def start_session_and_workers(
     get_db_pool: asyncpg.Pool,
 ) -> AsyncGenerator[None, None]:
     await cw_session_manager.start()
-    incoming_task = asyncio.create_task(incoming_worker.run())
-    outgoing_task = asyncio.create_task(outgoing_worker.run())
+    incoming_task = asyncio.create_task(channel_to_cw_worker.run())
+    outgoing_task = asyncio.create_task(cw_to_channel_worker.run())
     yield
     incoming_task.cancel()
     outgoing_task.cancel()
