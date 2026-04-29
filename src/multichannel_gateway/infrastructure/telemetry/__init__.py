@@ -6,7 +6,6 @@ from .helpers import (
     set_span_attributes,
 )
 from .propagation import TRACE_CONTEXT_KEY, extract_trace_context, inject_trace_context
-from .sentry import setup_sentry
 from .tracing import get_tracer, setup_tracing
 
 __all__ = [
@@ -19,6 +18,5 @@ __all__ = [
     "mark_span_error",
     "mark_span_ok",
     "set_span_attributes",
-    "setup_sentry",
     "setup_tracing",
 ]
