@@ -29,7 +29,11 @@ dependencies = [
     "opentelemetry-exporter-otlp==1.40.0",
     "opentelemetry-instrumentation-fastapi==0.61b0",
     "opentelemetry-sdk==1.40.0",
-    "sentry-sdk==2.56.0",
+]
+
+[project.optional-dependencies]
+sentry = [
+    "sentry-sdk[opentelemetry-otlp]==2.56.0",
 ]
 
 [dependency-groups]

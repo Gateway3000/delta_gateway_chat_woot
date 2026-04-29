@@ -18,10 +18,8 @@ from src.multichannel_gateway.app.wiring import (
     telemetry_settings,
 )
 from src.multichannel_gateway.infrastructure.endpoints import router
-from src.multichannel_gateway.infrastructure.telemetry import (
-    setup_sentry,
-    setup_tracing,
-)
+from src.multichannel_gateway.infrastructure.telemetry import setup_tracing
+from src.multichannel_gateway.infrastructure.telemetry.sentry import setup_sentry
 
 check_eventloop_policy()
 setup_logging()
