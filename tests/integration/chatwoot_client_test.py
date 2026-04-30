@@ -64,9 +64,9 @@ class TestDeliverMessage:
                 payload=CREATE_MESSAGE,
             )
 
-            await client.deliver_message(
+            await client.deliver_channel_to_chatwoot_message(
                 account_id=ACCOUNT_ID,
-                identifier=IDENTIFIER,
+                end_user_id=IDENTIFIER,
                 inbox_id=INBOX_ID,
                 content=CONTENT,
                 name="John Doe",
@@ -134,9 +134,9 @@ class TestDeliverMessage:
                 payload=CREATE_MESSAGE,
             )
 
-            await client.deliver_message(
+            await client.deliver_channel_to_chatwoot_message(
                 account_id=ACCOUNT_ID,
-                identifier=IDENTIFIER,
+                end_user_id=IDENTIFIER,
                 inbox_id=INBOX_ID,
                 content=CONTENT,
             )
@@ -208,9 +208,9 @@ class TestDeliverMessage:
                 payload=CREATE_MESSAGE,
             )
 
-            await client.deliver_message(
+            await client.deliver_channel_to_chatwoot_message(
                 account_id=ACCOUNT_ID,
-                identifier=IDENTIFIER,
+                end_user_id=IDENTIFIER,
                 inbox_id=INBOX_ID,
                 content=CONTENT,
                 name="Alice",
@@ -257,9 +257,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(FatalError):
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -287,9 +287,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(FatalError):
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -315,9 +315,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(TransientError):
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -341,9 +341,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(TransientError) as exc_info:
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -369,9 +369,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(TransientError) as exc_info:
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -396,9 +396,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(FatalError):
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -421,9 +421,9 @@ class TestDeliverMessage:
             )
 
             with pytest.raises(FatalError):
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                 )
@@ -571,9 +571,9 @@ class TestDeliverMessage:
                     payload=CREATE_MESSAGE,
                 )
 
-                await client.deliver_message(
+                await client.deliver_channel_to_chatwoot_message(
                     account_id=ACCOUNT_ID,
-                    identifier=IDENTIFIER,
+                    end_user_id=IDENTIFIER,
                     inbox_id=INBOX_ID,
                     content=CONTENT,
                     attachments=[
@@ -642,9 +642,9 @@ class TestDeliverMessage:
                 )
 
                 with pytest.raises(TransientError):
-                    await client.deliver_message(
+                    await client.deliver_channel_to_chatwoot_message(
                         account_id=ACCOUNT_ID,
-                        identifier=IDENTIFIER,
+                        end_user_id=IDENTIFIER,
                         inbox_id=INBOX_ID,
                         content=CONTENT,
                         attachments=[

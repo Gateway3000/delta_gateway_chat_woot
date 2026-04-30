@@ -1,6 +1,6 @@
 from .multichannel_gateway import (
+    ChannelDeliveryResult,
     ConnectorNotFoundError,
-    DeliveryResult,
     Envelope,
     FatalError,
     IChannel,
@@ -14,7 +14,7 @@ from .multichannel_gateway.app.wiring import pgmq
 
 __all__ = [
     "IChannel",
-    "DeliveryResult",
+    "ChannelDeliveryResult",
     "pgmq",
     "PGMessageQueue",
     "SenderInfo",

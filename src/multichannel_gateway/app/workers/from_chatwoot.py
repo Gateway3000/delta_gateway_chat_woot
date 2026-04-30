@@ -31,7 +31,7 @@ class ChatwootToChannelWorker(BaseWorker):
     async def _handle_message(self, payload: dict[str, Any]) -> None:
         """Contains the logic for processing messages from Chatwoot to Gateway."""
         with tracer.start_as_current_span(
-            "outgoing_worker.send_to_channel", kind=SpanKind.INTERNAL
+            "worker.chatwoot_to_channel.send", kind=SpanKind.INTERNAL
         ) as span:
             channel_name = str(payload.get("channel"))
             channel = self._channels.get_channel(channel_name)

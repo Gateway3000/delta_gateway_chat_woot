@@ -43,7 +43,7 @@ async def test_telegram_chatwoot(
     mock_deliver_message = AsyncMock()
     monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
-        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
+        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_channel_to_chatwoot_message",
         mock_deliver_message,
     )
 
@@ -136,7 +136,7 @@ async def test_telegram_chatwoot_attachment(
     mock_download = AsyncMock(return_value=(tmp_path, "photos/file_1.jpg"))
     monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
-        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
+        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_channel_to_chatwoot_message",
         mock_deliver_message,
     )
     monkeypatch.setattr(
@@ -212,7 +212,7 @@ async def test_telegram_chatwoot_attachment_oversize_notifies_user(
     mock_download = AsyncMock()
     monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
-        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
+        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_channel_to_chatwoot_message",
         mock_deliver_message,
     )
     monkeypatch.setattr(
@@ -303,7 +303,7 @@ async def test_telegram_chatwoot_multi_attachments_include_animation(
     mock_download = AsyncMock(side_effect=_make_tmp_file)
     monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
-        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_message",
+        "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_channel_to_chatwoot_message",
         mock_deliver_message,
     )
     monkeypatch.setattr(

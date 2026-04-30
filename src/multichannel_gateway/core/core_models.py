@@ -32,8 +32,8 @@ class Envelope(BaseModel):
     ts: float
 
 
-class DeliveryResult(BaseModel):
-    """Represents the result of sending an outbound message."""
+class ChannelDeliveryResult(BaseModel):
+    """Represents the result of sending a Chatwoot -> Channel message."""
 
     ok: bool
     external_id: str | None = None

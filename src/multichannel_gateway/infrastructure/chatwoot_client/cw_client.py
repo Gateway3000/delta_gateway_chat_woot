@@ -42,10 +42,10 @@ class ChatwootClient(IChatwootClient):
         }
         self._cw_sm = cw_session_manager
 
-    async def deliver_message(
+    async def deliver_channel_to_chatwoot_message(
         self,
         account_id: int,
-        identifier: str,
+        end_user_id: str,
         inbox_id: int,
         content: str,
         name: str | None = None,
@@ -54,18 +54,18 @@ class ChatwootClient(IChatwootClient):
         attachments: list[ChatwootAttachment] | None = None,
     ) -> None:
         """Facade method to find or create a contact, ensure conversation exists,
-        and send a message to that conversation.
+        and deliver a Channel -> Chatwoot message into that conversation.
         No value is returned. Errors are raised for non-2xx status codes.
         """
 
         # Step 1: Search for the contact
-        found_contact = await self._search_contact(account_id, identifier)
+        found_contact = await self._search_contact(account_id, end_user_id)
         conversation_id: int | None
 
         if found_contact is None:
             # If contact does not exist, create it
             contact = await self._create_contact(
-                account_id, inbox_id, identifier, name, email, phone_number
+                account_id, inbox_id, end_user_id, name, email, phone_number
             )
             # After creating contact, we need to create a new conversation
             conversation_id = await self._create_conversation(
@@ -104,7 +104,7 @@ class ChatwootClient(IChatwootClient):
             logger.debug(
                 "Cleaning up temp attachments after fatal Chatwoot delivery error",
                 account_id=account_id,
-                identifier=identifier,
+                end_user_id=end_user_id,
                 attachments_count=len(normalized_attachments),
             )
             self._cleanup_temp_attachments(normalized_attachments)
@@ -113,7 +113,7 @@ class ChatwootClient(IChatwootClient):
             logger.debug(
                 "Cleaning up temp attachments after successful Chatwoot delivery",
                 account_id=account_id,
-                identifier=identifier,
+                end_user_id=end_user_id,
                 attachments_count=len(normalized_attachments),
             )
             self._cleanup_temp_attachments(normalized_attachments)
@@ -245,7 +245,7 @@ class ChatwootClient(IChatwootClient):
         self,
         account_id: int,
         conversation_id: int,
-        msg_type: Literal["incoming", "outgoing"],
+        chatwoot_message_type: Literal["incoming", "outgoing"],
         content: str,
         attachments: list[str] | None = None,
     ) -> None:
@@ -255,7 +255,10 @@ class ChatwootClient(IChatwootClient):
 
         url = f"{self.base_url}/api/v1/accounts/{account_id}/conversations/{conversation_id}/messages"
 
-        payload: dict[str, Any] = {"message_type": msg_type, "content": content}
+        payload: dict[str, Any] = {
+            "message_type": chatwoot_message_type,
+            "content": content,
+        }
         if attachments:
             payload["attachments"] = attachments[:15]
 

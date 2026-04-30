@@ -11,7 +11,7 @@ from aiogram.exceptions import (
 from aiogram.methods import SendMessage
 from aiogram.types import Message
 
-from src import DeliveryResult
+from src import ChannelDeliveryResult
 from src.multichannel_gateway.core.exceptions import (
     FatalError,
     RateLimitError,
@@ -144,7 +144,7 @@ async def test_send_to_user_raises_rate_limit_error_on_retry_after(
 async def test_gateway_send_to_user_proxies_transport_result() -> None:
     transport_mock = Mock(spec=TelegramTransport)
     transport_mock.send_to_telegram_user = AsyncMock(
-        return_value=DeliveryResult(ok=True, external_id="123")
+        return_value=ChannelDeliveryResult(ok=True, external_id="123")
     )
     gateway = _build_gateway(cast(TelegramTransport, transport_mock))
 

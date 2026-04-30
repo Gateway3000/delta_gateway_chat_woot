@@ -3,7 +3,7 @@ from .attachment_models import (
     LocalFileAttachment,
     UploadedAttachment,
 )
-from .core_models import DeliveryResult, Envelope, SenderInfo, SenderInfoKey
+from .core_models import ChannelDeliveryResult, Envelope, SenderInfo, SenderInfoKey
 from .exceptions import (
     ConnectorNotFoundError,
     FatalError,
@@ -17,7 +17,7 @@ from .name_generator import generate_username
 __all__ = [
     "ChatwootAttachment",
     "ConnectorNotFoundError",
-    "DeliveryResult",
+    "ChannelDeliveryResult",
     "Envelope",
     "FatalError",
     "IdempotencyKeyAlreadyProcessedError",

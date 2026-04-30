@@ -3,7 +3,7 @@ class ConnectorNotFoundError(Exception):
 
 
 class WrongUpdateTypeError(Exception):
-    """Raised when inbound update has no message."""
+    """Raised when Channel -> Chatwoot update has no message."""
 
 
 class IdempotencyKeyAlreadyProcessedError(Exception):

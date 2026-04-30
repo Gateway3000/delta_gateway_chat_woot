@@ -12,8 +12,8 @@ from src.multichannel_gateway.app.utils import (
 )
 from src.multichannel_gateway.app.wiring import (
     cw_session_manager,
-    incoming_worker,
-    outgoing_worker,
+    channel_to_cw_worker,
+    cw_to_channel_worker,
     registry,
     telemetry_settings,
 )
@@ -30,17 +30,17 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await registry.on_startup()
     await cw_session_manager.start()
     incoming_task = asyncio.create_task(
-        incoming_worker.run(), name=f"incoming_worker_pid_{os.getpid()}"
+        channel_to_cw_worker.run(), name=f"incoming_worker_pid_{os.getpid()}"
     )
     outgoing_task = asyncio.create_task(
-        outgoing_worker.run(), name=f"outgoing_worker_pid_{os.getpid()}"
+        cw_to_channel_worker.run(), name=f"outgoing_worker_pid_{os.getpid()}"
     )
     incoming_task.add_done_callback(log_background_task_result)
     outgoing_task.add_done_callback(log_background_task_result)
     yield
     await registry.on_shutdown()
     await cw_session_manager.stop()
-    await asyncio.gather(incoming_worker.stop(), outgoing_worker.stop())
+    await asyncio.gather(channel_to_cw_worker.stop(), cw_to_channel_worker.stop())
     await asyncio.gather(incoming_task, outgoing_task, return_exceptions=True)
 
 

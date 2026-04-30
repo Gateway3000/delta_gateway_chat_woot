@@ -23,7 +23,7 @@ def _safe_int(value: Any) -> int | None:
 
 
 def extract_telegram_attachments(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract Telegram attachment metadata from an inbound update."""
+    """Extract Telegram attachment metadata from a Telegram -> Chatwoot update."""
     message = raw_data.get("message", {})
     attachments: list[dict[str, Any]] = []
 
@@ -202,7 +202,7 @@ async def _notify_attachment_too_large(
     )
 
 
-async def _prepare_single_inbound_attachment(
+async def _prepare_single_telegram_to_chatwoot_attachment(
     attachment: dict[str, Any],
     *,
     bot_manager: TelegramBotManager,
@@ -254,7 +254,7 @@ async def _prepare_single_inbound_attachment(
         _remove_temp_file(temp_file_path)
 
 
-async def prepare_inbound_attachments(
+async def prepare_telegram_to_chatwoot_attachments(
     message: dict[str, Any],
     *,
     bot_manager: TelegramBotManager,
@@ -268,7 +268,7 @@ async def prepare_inbound_attachments(
     prepared_attachments: list[LocalFileAttachment] = []
 
     for attachment in attachments:
-        prepared_attachment = await _prepare_single_inbound_attachment(
+        prepared_attachment = await _prepare_single_telegram_to_chatwoot_attachment(
             attachment,
             bot_manager=bot_manager,
             connector_id=str(message["connector_id"]),

@@ -31,7 +31,7 @@ tracer: Tracer = get_tracer(__name__)
 async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Response:
     """An endpoint for handling Channel -> Chatwoot webhooks."""
 
-    with tracer.start_as_current_span("webhook.incoming") as span:
+    with tracer.start_as_current_span("webhook.channel_to_chatwoot") as span:
         set_span_attributes(
             span,
             build_webhook_attributes(channel, connector_id=connector_id),
@@ -46,7 +46,7 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
             if response := _handle_exceptions(e, span, raw_data):
                 return response
             raise
-        logger.debug("Inbound webhook processed successfully")
+        logger.debug("Channel->Chatwoot webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -54,7 +54,7 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
 async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> Response:
     """An endpoint for handling Chatwoot -> Channel webhooks."""
 
-    with tracer.start_as_current_span("webhook.outgoing") as span:
+    with tracer.start_as_current_span("webhook.chatwoot_to_channel") as span:
         set_span_attributes(
             span,
             build_webhook_attributes(channel, cw_account_id=cw_account_id),
@@ -63,7 +63,7 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
         if raw_data.get("message_type") == "outgoing":
             try:
                 channel_ = registry.get_channel(channel)
-                await channel_.process_outbound(raw_data, cw_account_id)
+                await channel_.publish_chatwoot_message(raw_data, cw_account_id)
                 mark_span_ok(span)
             except Exception as e:
                 if response := _handle_exceptions(e, span, raw_data):
@@ -75,7 +75,7 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
                 {"chatwoot.message_type": raw_data.get("message_type")},
             )
             mark_span_ok(span)
-        logger.debug("Outbound webhook processed successfully")
+        logger.debug("Chatwoot->Channel webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

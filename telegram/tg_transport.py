@@ -9,7 +9,7 @@ from aiogram.exceptions import (
 from aiogram.types import URLInputFile
 from aiohttp import ClientConnectorError, ServerDisconnectedError
 
-from src import DeliveryResult, Envelope
+from src import ChannelDeliveryResult, Envelope
 from src.multichannel_gateway.core.exceptions import (
     RateLimitError,
     FatalError,
@@ -26,7 +26,7 @@ class TelegramTransport:
 
     async def send_to_telegram_user(
         self, message: dict[str, Any], limiter: Any = asyncio.sleep
-    ) -> DeliveryResult:
+    ) -> ChannelDeliveryResult:
         envelope = Envelope.model_validate(message)
         connector_id = envelope.connector_id
         bot = self._bots.get_bot_by_connector_id(connector_id)
@@ -74,7 +74,9 @@ class TelegramTransport:
             if not sent_message_ids:
                 raise FatalError("Telegram delivery failure: no text or attachments")
 
-            return DeliveryResult(ok=True, external_id=",".join(sent_message_ids))
+            return ChannelDeliveryResult(
+                ok=True, external_id=",".join(sent_message_ids)
+            )
 
         except (
             TelegramNetworkError,
