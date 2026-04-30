@@ -31,6 +31,9 @@ dependencies = [
     "opentelemetry-sdk==1.40.0",
 ]
 
+[project.entry-points."multichannel_gateway.channels"]
+telegram = "telegram.tg_wiring:telegram_channel"
+
 [project.optional-dependencies]
 sentry = [
     "sentry-sdk[opentelemetry-otlp]==2.56.0",

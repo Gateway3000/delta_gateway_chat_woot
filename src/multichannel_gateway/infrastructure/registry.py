@@ -18,16 +18,27 @@ class ChannelRegistry:
     def __init__(self) -> None:
         self._channels: dict[str, IChannel] = {}
 
-    def register_channel(self, channel: IChannel) -> None:
-        """Registers a built-in channel."""
-        self._channels[channel.channel] = channel
-
     def discover_channels(self, group: str) -> None:
         """Automatically discovers channels using entry points."""
         eps = entry_points().select(group=group)
+
+        discovered = 0
         for ep in eps:  # ep: EntryPoint
             channel = ep.load()
+            logger.info(f'Found channel: "{ep.name}"')
+            if channel.channel in self._channels:
+                logger.warning(
+                    "Replacing already registered channel from entry point",
+                    channel=channel.channel,
+                    entry_point=ep.name,
+                )
             self._channels[channel.channel] = channel
+            discovered += 1
+
+        if discovered == 0:
+            raise RuntimeError(
+                f"No channels discovered for entry-point group '{group}'"
+            )
 
     def get_channel(self, channel: str) -> IChannel:
         """Retrieves a channel by its channel type."""

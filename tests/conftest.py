@@ -29,12 +29,11 @@ from src.multichannel_gateway.app.wiring import (  # noqa: E402
 from src.multichannel_gateway.infrastructure import (  # noqa: E402
     ChatwootClient,
 )
-from telegram.tg_wiring import telegram_channel  # noqa: E402
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def register_gateway() -> None:
-    registry.register_channel(telegram_channel)
+async def discover_channels() -> None:
+    registry.discover_channels("multichannel_gateway.channels")
 
 
 @pytest_asyncio.fixture(scope="session")
