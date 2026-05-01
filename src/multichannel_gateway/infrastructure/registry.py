@@ -25,7 +25,6 @@ class ChannelRegistry:
         discovered = 0
         for ep in eps:  # ep: EntryPoint
             channel = ep.load()
-            logger.info(f'Found channel: "{ep.name}"')
             if channel.channel in self._channels:
                 logger.warning(
                     "Replacing already registered channel from entry point",
@@ -56,7 +55,7 @@ class ChannelRegistry:
         for channel in self._channels.values():
             startup_task = asyncio.create_task(channel.on_startup())
             tasks.append(startup_task)
-            logger.debug(f'Initializing channel "{channel.channel}"...')
+            logger.info(f'Initializing channel "{channel.channel}"...')
         await asyncio.gather(*tasks)
 
     async def on_shutdown(self) -> None:
