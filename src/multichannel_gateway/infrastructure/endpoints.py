@@ -46,7 +46,7 @@ async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Resp
             if response := _handle_exceptions(e, span, raw_data):
                 return response
             raise
-        logger.debug("Channel->Chatwoot webhook processed successfully")
+        logger.debug(f"{channel.capitalize()}->Chatwoot webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -75,7 +75,7 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
                 {"chatwoot.message_type": raw_data.get("message_type")},
             )
             mark_span_ok(span)
-        logger.debug("Chatwoot->Channel webhook processed successfully")
+        logger.debug(f"Chatwoot->{channel.capitalize()} webhook processed successfully")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
