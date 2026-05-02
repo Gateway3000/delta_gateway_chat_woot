@@ -1,4 +1,4 @@
-from pathlib import Path
+import base64
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -117,19 +117,12 @@ class TestPrepareChannelToChatwootAttachments:
 
     @pytest.mark.asyncio
     async def test_validate_and_download_downloads_attachment_and_keeps_it_for_later_upload(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self,
     ) -> None:
-        monkeypatch.setattr(
-            "telegram.tg_attachments.tempfile.gettempdir", lambda: str(tmp_path)
-        )
-        temp_file_path = tmp_path / "channel-gateway" / "report.pdf"
-
         bot = Mock()
         bot.get_file = AsyncMock(return_value=Mock(file_path="docs/report.pdf"))
         bot.download_file = AsyncMock(
-            side_effect=lambda _file_path, destination: Path(destination).write_bytes(
-                b"pdf-bytes"
-            )
+            side_effect=lambda _file_path, destination: destination.write(b"pdf-bytes")
         )
         bot.send_message = AsyncMock()
         bot_manager = Mock()
@@ -159,18 +152,17 @@ class TestPrepareChannelToChatwootAttachments:
 
         attachments = prepared["payload"]["attachments"]
         assert len(attachments) == 1
-        assert attachments[0].kind == "local_file"
+        assert attachments[0].kind == "base64"
         assert attachments[0].filename == "report.pdf"
         assert attachments[0].mime_type == "application/pdf"
         assert attachments[0].file_type == "file"
-        assert attachments[0].temp_file_path == temp_file_path
+        assert attachments[0].data_encoding == "base64"
+        assert attachments[0].data == base64.b64encode(b"pdf-bytes").decode("ascii")
         bot_manager.get_bot_by_connector_id.assert_called_with("tg1")
         bot.get_file.assert_awaited_once_with("file-1")
-        bot.download_file.assert_awaited_once_with(
-            "docs/report.pdf", destination=str(temp_file_path)
-        )
+        bot.download_file.assert_awaited_once()
+        assert bot.download_file.call_args[0][0] == "docs/report.pdf"
         bot.send_message.assert_not_awaited()
-        assert temp_file_path.exists()
 
     @pytest.mark.asyncio
     async def test_validate_and_download_notifies_user_and_skips_oversize_attachment(
