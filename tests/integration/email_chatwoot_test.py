@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock
 import asyncpg
 import pytest
 
-from email_channel.email_wiring import email_settings
+from email_channel.email_wiring import email_routing, email_settings
+from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
 from src.multichannel_gateway.infrastructure.endpoints import handle_channel_payload
 
 
@@ -42,13 +43,26 @@ async def test_email_chatwoot(
 
     async with get_db_pool.acquire() as conn:
         q_to_cw_res = await conn.fetch("SELECT COUNT(*) FROM pgmq.q_to_cw")
+        # Get the processed key for this specific email test
         processed_keys_res = await conn.fetchrow(
-            "SELECT * FROM pgmq.processed_keys ORDER BY key DESC LIMIT 1"
+            "SELECT * FROM pgmq.processed_keys WHERE key LIKE 'email->chatwoot:%' ORDER BY key DESC LIMIT 1"
         )
 
     assert q_to_cw_res[0]["count"] == 0
     assert processed_keys_res["key"] is not None
-    assert "12345" in processed_keys_res["key"]
+
+    route = email_routing.get_route_by_connector_id(connector_id)
+    expected_key = BaseEnvelopeFactory._build_idempotency_key(
+        direction="email->chatwoot",
+        connector_id=connector_id,
+        external_id=email_settings.mailboxes_config[0].imap_username.lower(),
+        message_id="<test123@example.com>",
+        imap_mailbox=route["imap_mailbox"],
+        uidvalidity="777",
+        uid="12345",
+    )
+    stored_key = processed_keys_res["key"]
+    assert stored_key == expected_key
     mock_deliver_message.assert_called()
     test_call_found = any(
         "Test Subject" in str(call.kwargs.get("content", ""))

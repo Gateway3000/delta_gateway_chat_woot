@@ -7,7 +7,8 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from telegram.tg_wiring import tg_settings
+from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
+from telegram.tg_wiring import tg_routing, tg_settings
 
 
 def _assert_delivery_confirmation_sent(mock_send_message: AsyncMock) -> None:
@@ -67,9 +68,15 @@ async def test_telegram_chatwoot(
     assert q_to_cw_res[0]["count"] == 0
 
     # Check that the record was put in the "processed_keys" table
-    assert processed_keys_res["key"] == (
-        f"telegram->chatwoot:tg1:{tg_settings.bots_config[0].bot_token[-5:]}:1234567890:300"
+    route = tg_routing.get_route_by_connector_id("tg1")
+    expected_key = BaseEnvelopeFactory._build_idempotency_key(
+        direction="telegram->chatwoot",
+        connector_id="tg1",
+        external_id="1234567890",
+        message_id="300",
+        bot_token_suffix=route["bot_token"][-5:],
     )
+    assert processed_keys_res["key"] == expected_key
 
     # ========== CHECK THE SECOND CALL WITH THE SAME ARGUMENTS, IT SHOULD BE PROCESSED DIFFERENTLY =========
     async with AsyncClient(
