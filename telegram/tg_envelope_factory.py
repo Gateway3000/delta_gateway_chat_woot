@@ -1,23 +1,18 @@
 from datetime import datetime
-from typing import Mapping, Any
+from typing import Any
 
 from src import Envelope, SenderInfo
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,
 )
+from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
 from telegram.tg_attachments import extract_telegram_attachments
 from telegram.tg_routing import TelegramRouting
 
 
-class TelegramEnvelopeFactory:
+class TelegramEnvelopeFactory(BaseEnvelopeFactory):
     def __init__(self, routing: TelegramRouting) -> None:
         self._routing = routing
-
-    @staticmethod
-    def _idempotency_key(
-        sender_id: str, msg_id: str, route: Mapping[str, str], from_: str, to: str
-    ) -> str:
-        return f"{from_}->{to}:{route['connector_id']}:{route['bot_token'][-5:]}:{sender_id}:{msg_id}"
 
     def parse_channel_request(
         self, raw_data: dict[str, Any], connector_id: str, channel: str
@@ -30,12 +25,12 @@ class TelegramEnvelopeFactory:
         message_id = str(raw_data["message"]["message_id"])
         to = "chatwoot"
 
-        idempotency_key = self._idempotency_key(
-            sender_info["external_id"],
-            message_id,
-            route,
-            channel,
-            to,
+        idempotency_key = self._build_idempotency_key(
+            direction=f"{channel}->{to}",
+            connector_id=route["connector_id"],
+            external_id=sender_info["external_id"],
+            message_id=message_id,
+            bot_token_suffix=route["bot_token"][-5:],
         )
 
         envelope = Envelope(
@@ -66,12 +61,12 @@ class TelegramEnvelopeFactory:
         message_id = str(raw_data["conversation"]["messages"][0]["id"])
         from_ = "chatwoot"
 
-        idempotency_key = self._idempotency_key(
-            sender_info["external_id"],
-            message_id,
-            route,
-            from_,
-            channel,
+        idempotency_key = self._build_idempotency_key(
+            direction=f"{from_}->{channel}",
+            connector_id=route["connector_id"],
+            external_id=sender_info["external_id"],
+            message_id=message_id,
+            bot_token_suffix=route["bot_token"][-5:],
         )
 
         envelope = Envelope(
