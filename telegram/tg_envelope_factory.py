@@ -5,12 +5,12 @@ from src import Envelope, SenderInfo
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,
 )
-from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 from telegram.tg_attachments import extract_telegram_attachments
 from telegram.tg_routing import TelegramRouting
 
 
-class TelegramEnvelopeFactory(BaseEnvelopeFactory):
+class TelegramEnvelopeFactory(IEnvelopeFactory):
     def __init__(self, routing: TelegramRouting) -> None:
         self._routing = routing
 
@@ -25,7 +25,7 @@ class TelegramEnvelopeFactory(BaseEnvelopeFactory):
         message_id = str(raw_data["message"]["message_id"])
         to = "chatwoot"
 
-        idempotency_key = self._build_idempotency_key(
+        idempotency_key = self.build_idempotency_key(
             direction=f"{channel}->{to}",
             connector_id=route["connector_id"],
             external_id=sender_info["external_id"],
@@ -61,7 +61,7 @@ class TelegramEnvelopeFactory(BaseEnvelopeFactory):
         message_id = str(raw_data["conversation"]["messages"][0]["id"])
         from_ = "chatwoot"
 
-        idempotency_key = self._build_idempotency_key(
+        idempotency_key = self.build_idempotency_key(
             direction=f"{from_}->{channel}",
             connector_id=route["connector_id"],
             external_id=sender_info["external_id"],

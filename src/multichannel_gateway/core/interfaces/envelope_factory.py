@@ -1,12 +1,27 @@
+from abc import ABC, abstractmethod
 from hashlib import sha1
 from typing import Any
 
+from src.multichannel_gateway.core import Envelope
 
-class BaseEnvelopeFactory:
-    """Base class for envelope factories with unified idempotency key generation."""
+
+class IEnvelopeFactory(ABC):
+    """Interface for envelope factories with unified idempotency key generation."""
+
+    @abstractmethod
+    def parse_channel_request(
+        self, raw_data: dict[str, Any], connector_id: str, channel: str
+    ) -> tuple[str, Envelope]:
+        """Parses a channel request into an idempotency key and Envelope."""
+
+    @abstractmethod
+    def parse_chatwoot_request(
+        self, raw_data: dict[str, Any], cw_account_id: str, channel: str
+    ) -> tuple[str, Envelope]:
+        """Parses a Chatwoot request into an idempotency key and Envelope."""
 
     @staticmethod
-    def _build_idempotency_key(
+    def build_idempotency_key(
         direction: str,
         connector_id: str,
         external_id: str,

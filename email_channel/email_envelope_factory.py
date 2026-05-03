@@ -8,10 +8,10 @@ from src import Envelope, SenderInfo
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,
 )
-from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 
 
-class EmailEnvelopeFactory(BaseEnvelopeFactory):
+class EmailEnvelopeFactory(IEnvelopeFactory):
     """Builds Envelope models from normalized inbound email payloads."""
 
     def __init__(self, routing: EmailRouting) -> None:
@@ -26,7 +26,7 @@ class EmailEnvelopeFactory(BaseEnvelopeFactory):
         message_id = self._resolve_message_id(raw_data)
         uid = self._required_str(raw_data, "uid")
         uidvalidity = self._required_str(raw_data, "uidvalidity")
-        idem_key = self._build_idempotency_key(
+        idem_key = self.build_idempotency_key(
             direction=f"{channel}->chatwoot",
             connector_id=route["connector_id"],
             external_id=sender["external_id"],
@@ -70,7 +70,7 @@ class EmailEnvelopeFactory(BaseEnvelopeFactory):
         )
         sender_info = SenderInfo(external_id=sender_external_id)
         message_id = str(raw_data["conversation"]["messages"][0]["id"])
-        idempotency_key = self._build_idempotency_key(
+        idempotency_key = self.build_idempotency_key(
             direction=f"chatwoot->{channel}",
             connector_id=route["connector_id"],
             external_id=sender_external_id,

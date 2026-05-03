@@ -6,7 +6,7 @@ import asyncpg
 import pytest
 
 from email_channel.email_wiring import email_routing, email_settings
-from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 from src.multichannel_gateway.infrastructure.endpoints import handle_channel_payload
 
 
@@ -52,7 +52,7 @@ async def test_email_chatwoot(
     assert processed_keys_res["key"] is not None
 
     route = email_routing.get_route_by_connector_id(connector_id)
-    expected_key = BaseEnvelopeFactory._build_idempotency_key(
+    expected_key = IEnvelopeFactory.build_idempotency_key(
         direction="email->chatwoot",
         connector_id=connector_id,
         external_id=email_settings.mailboxes_config[0].imap_username.lower(),

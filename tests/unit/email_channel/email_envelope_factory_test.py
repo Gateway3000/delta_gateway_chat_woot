@@ -2,7 +2,7 @@ import pytest
 
 from email_channel import EmailEnvelopeFactory, EmailRouting
 from email_channel.plugin_settings import MailboxConfig
-from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 
 
 class TestEmailEnvelopeFactory:
@@ -37,8 +37,8 @@ class TestEmailEnvelopeFactory:
         assert envelope.sender.external_id == mailbox.imap_username.lower()
         assert envelope.sender.nickname == "abc"
         assert envelope.payload["text"] == "Subject: Hello\n\nPlain text"
-        # Compute expected key using real BaseEnvelopeFactory logic
-        expected_key = BaseEnvelopeFactory._build_idempotency_key(
+        # Compute expected key using real IEnvelopeFactory logic
+        expected_key = IEnvelopeFactory.build_idempotency_key(
             direction="email->chatwoot",
             connector_id=mailbox.connector_id,
             external_id=mailbox.imap_username.lower(),
@@ -195,8 +195,8 @@ class TestEmailEnvelopeFactory:
             channel="email",
         )
 
-        # Compute expected key using real BaseEnvelopeFactory logic
-        expected_key = BaseEnvelopeFactory._build_idempotency_key(
+        # Compute expected key using real IEnvelopeFactory logic
+        expected_key = IEnvelopeFactory.build_idempotency_key(
             direction="chatwoot->email",
             connector_id=mailbox.connector_id,
             external_id="user@example.com",

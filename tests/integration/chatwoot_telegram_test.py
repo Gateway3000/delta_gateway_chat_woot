@@ -7,7 +7,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from src.multichannel_gateway.core.base_envelope_factory import BaseEnvelopeFactory
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 from telegram.tg_wiring import tg_routing, tg_settings
 
 
@@ -57,9 +57,9 @@ async def test_chatwoot_telegram(
     assert q_from_cw_res[0]["count"] == 0
 
     # Check that the record was put in the "processed_keys" table
-    # Compute expected key using the same logic as BaseEnvelopeFactory
+    # Compute expected key using the same logic as IEnvelopeFactory
     route = tg_routing.get_route_by_inbox_id("18")
-    expected_key = BaseEnvelopeFactory._build_idempotency_key(
+    expected_key = IEnvelopeFactory.build_idempotency_key(
         direction="chatwoot->telegram",
         connector_id=route["connector_id"],
         external_id="123321",
