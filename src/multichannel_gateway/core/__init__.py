@@ -1,4 +1,5 @@
 from .attachment_models import (
+    Base64Attachment,
     ChatwootAttachment,
     LocalFileAttachment,
     UploadedAttachment,
@@ -15,6 +16,7 @@ from .exceptions import (
 from .name_generator import generate_username
 
 __all__ = [
+    "Base64Attachment",
     "ChatwootAttachment",
     "ConnectorNotFoundError",
     "ChannelDeliveryResult",
