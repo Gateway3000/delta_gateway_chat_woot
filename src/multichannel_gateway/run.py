@@ -22,4 +22,5 @@ def run() -> None:
         loop="asyncio",
         reload=settings.environment == "LOCAL",
         workers=0 if settings.environment == "LOCAL" else settings.workers,
+        log_level=settings.log_level.lower(),
     )
