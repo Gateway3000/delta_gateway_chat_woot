@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     workers: int = 1
 
+    channels: list[str] = []
+
     @property
     def db_url(self) -> str:
         return (

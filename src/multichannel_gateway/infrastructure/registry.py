@@ -18,12 +18,28 @@ class ChannelRegistry:
     def __init__(self) -> None:
         self._channels: dict[str, IChannel] = {}
 
-    def discover_channels(self, group: str) -> None:
-        """Automatically discovers channels using entry points."""
+    def discover_channels(
+        self, group: str, channel_names: list[str] | None = None
+    ) -> None:
+        """Automatically discovers channels using entry points.
+
+        Args:
+            group: Entry point group name.
+            channel_names: Optional list of channel names to load (case-insensitive).
+                          If empty or None, all discovered channels are loaded.
+        """
         eps = entry_points().select(group=group)
 
+        target_names = (
+            {name.lower() for name in channel_names} if channel_names else None
+        )
+
         discovered = 0
-        for ep in eps:  # ep: EntryPoint
+        available = []
+        for ep in eps:
+            available.append(ep.name)
+            if target_names and ep.name.lower() not in target_names:
+                continue
             channel = ep.load()
             if channel.channel in self._channels:
                 logger.warning(
@@ -34,10 +50,26 @@ class ChannelRegistry:
             self._channels[channel.channel] = channel
             discovered += 1
 
+        if target_names:
+            if missing := target_names - {name.lower() for name in self._channels}:
+                raise RuntimeError(
+                    f"Channels not found: {missing}. Available: {available}"
+                )
+
         if discovered == 0:
+            if target_names:
+                raise RuntimeError(
+                    f"No channels matched {channel_names}. Available: {available}"
+                )
             raise RuntimeError(
                 f"No channels discovered for entry-point group '{group}'"
             )
+
+        logger.info(
+            "Discovered channels",
+            channels=list(self._channels.keys()),
+            total=discovered,
+        )
 
     def get_channel(self, channel: str) -> IChannel:
         """Retrieves a channel by its channel type."""
