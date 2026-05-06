@@ -11,9 +11,7 @@ class EmailImapWatcher:
     """Runs a periodic background loop for inbound IMAP polling."""
 
     def __init__(
-        self,
-        message_processor: EmailMessageProcessor,
-        poll_interval_seconds: float = 5.0,
+        self, message_processor: EmailMessageProcessor, poll_interval_seconds: float
     ) -> None:
         self._message_processor = message_processor
         self._interval = poll_interval_seconds

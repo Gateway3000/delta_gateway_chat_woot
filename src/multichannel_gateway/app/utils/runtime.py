@@ -26,7 +26,7 @@ async def wait_until_database_ready(pgmq: PGMessageQueue) -> None:
                     max_attempts=exc.max_transient_attempts,
                     error=repr(exc),
                 )
-                raise
+                raise ConnectionError from exc
             logger.error(
                 "Postgres is unavailable during startup, retrying",
                 attempt=attempt,

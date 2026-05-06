@@ -144,6 +144,22 @@ class EmailImapClient:
         )
         return None
 
+    def validate_connections(self) -> None:
+        """Validates IMAP connections for all configured mailboxes."""
+        if not self._mailboxes_config:
+            return
+        for config in self._mailboxes_config:
+            try:
+                conn = imaplib.IMAP4_SSL(config.imap_host, config.imap_port)
+                conn.login(config.imap_username, config.imap_password)
+                conn.logout()
+            except imaplib.IMAP4.error as e:
+                error_msg = (
+                    "Invalid IMAP credentials. Either provide valid credentials or disable Email channel in the "
+                    "CHANNELS variable."
+                )
+                raise ConnectionError(error_msg) from e
+
     @staticmethod
     def _get_uidvalidity(conn: imaplib.IMAP4_SSL, mailbox: str) -> str:
         status, data = conn.status(mailbox, "(UIDVALIDITY)")

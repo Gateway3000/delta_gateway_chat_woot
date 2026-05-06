@@ -37,3 +37,4 @@ class MailboxConfig(BaseModel):
 class EmailSettings(Settings):
     mailboxes_config: list[MailboxConfig] = []
     channel_upload_max_mb: int = 20
+    poll_interval_seconds: float = 5.0

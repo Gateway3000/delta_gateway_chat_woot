@@ -19,11 +19,14 @@ email_processor = EmailMessageProcessor(
     email_settings.incoming_queue_name,
     email_settings.outgoing_queue_name,
 )
-email_imap_watcher = EmailImapWatcher(email_processor)
+email_imap_watcher = EmailImapWatcher(
+    email_processor, email_settings.poll_interval_seconds
+)
 email_transport = EmailTransport(email_routing, email_settings)
 email_channel = EmailChannel(
     email_routing,
     email_processor,
     email_imap_watcher,
     email_transport,
+    email_imap_client,
 )

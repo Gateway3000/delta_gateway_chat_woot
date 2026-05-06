@@ -1,5 +1,7 @@
+import asyncio
 from typing import Any
 
+from email_channel.email_imap_client import EmailImapClient
 from email_channel.email_imap_watcher import EmailImapWatcher
 from email_channel.email_message_processor import EmailMessageProcessor
 from email_channel.email_routing import EmailRouting
@@ -16,11 +18,13 @@ class EmailChannel(IChannel):
         io_processor: EmailMessageProcessor,
         imap_watcher: EmailImapWatcher,
         transport: EmailTransport,
+        imap_client: EmailImapClient,
     ) -> None:
         self._routing = routing
         self._io_processor = io_processor
         self._imap_watcher = imap_watcher
         self._transport = transport
+        self._imap_client = imap_client
 
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
         return self._routing.get_route_by_connector_id(connector_id)
@@ -48,6 +52,10 @@ class EmailChannel(IChannel):
             cw_account_id,
             self.channel,
         )
+
+    async def on_prefork(self) -> None:
+        # imaplib is synchronous and blocking; offload to a thread to avoid blocking the event loop
+        await asyncio.to_thread(self._imap_client.validate_connections)
 
     async def on_startup(self) -> None:
         await self._imap_watcher.start()

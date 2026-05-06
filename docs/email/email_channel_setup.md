@@ -72,6 +72,18 @@ MAILBOXES_CONFIG='[{
 }]'
 ```
 
+### Переменная окружения `POLL_INTERVAL_SECONDS`
+
+Интервал опроса IMAP почтового ящика в секундах.
+
+```env
+POLL_INTERVAL_SECONDS=5.0
+```
+
+| Поле | Тип | По умолчанию | Описание |
+|------|-----|-------------|----------|
+| `POLL_INTERVAL_SECONDS` | float | `5.0` | Интервал между последовательными проверками IMAP (в секундах) |
+
 ### Параметры конфигурации
 
 | Поле                 | Тип       | Обязательное | Описание                                            |
@@ -191,6 +203,5 @@ IMAP connection failed after all retries  connector_id=email-support max_attempt
 ## Ограничения текущей версии
 
 - Поддерживается только Gmail IMAP/SMTP
-- Polling interval фиксирован
 - Нет IMAP IDLE (только polling)
 - Лимит вложений задаётся параметром `channel_upload_max_mb` (настройки плагина: `email_channel/plugin_settings.py`)
