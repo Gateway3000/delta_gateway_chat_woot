@@ -2,6 +2,7 @@ import asyncio
 
 import uvicorn
 
+from multichannel_gateway import Environment
 from src.multichannel_gateway.app.utils import wait_until_database_ready
 from src.multichannel_gateway.app.wiring import settings, pgmq, registry
 
@@ -20,7 +21,7 @@ def run() -> None:
         port=8000,
         use_colors=True,
         loop="asyncio",
-        reload=settings.environment == "LOCAL",
-        workers=0 if settings.environment == "LOCAL" else settings.workers,
+        reload=settings.environment == Environment.LOCAL,
+        workers=None if settings.environment == Environment.LOCAL else settings.workers,
         log_level=settings.log_level.lower(),
     )

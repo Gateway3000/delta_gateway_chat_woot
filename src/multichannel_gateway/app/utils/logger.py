@@ -3,6 +3,7 @@ from typing import Any, MutableMapping
 
 import structlog
 
+from multichannel_gateway import Environment
 from src.multichannel_gateway.app.wiring import settings
 
 RESET = "\x1b[0m"
@@ -81,7 +82,7 @@ def setup_logging() -> None:
     logging.getLogger("aiogram").setLevel(logging.WARNING)
     logging.getLogger("aiogram.dispatcher").setLevel(logging.WARNING)
 
-    if settings.environment == "LOCAL":
+    if settings.environment != Environment.PROD:
         structlog.configure(
             processors=[
                 structlog.stdlib.filter_by_level,
