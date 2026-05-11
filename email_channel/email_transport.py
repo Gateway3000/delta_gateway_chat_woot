@@ -41,7 +41,9 @@ class EmailTransport:
 
         recipient = envelope.sender["external_id"]
         text = str(envelope.payload.get("text") or "").strip()
-        subject = str(envelope.payload.get("subject") or "").strip()
+        subject = str(
+            envelope.payload.get("subject") or self._settings.default_subject
+        ).strip()
         attachments = envelope.payload.get("attachments", [])
 
         attachments_data = await prepare_attachments_data(attachments)
