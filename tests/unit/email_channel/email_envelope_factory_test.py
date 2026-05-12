@@ -2,6 +2,7 @@ import pytest
 
 from email_channel import EmailEnvelopeFactory, EmailRouting
 from email_channel.plugin_settings import MailboxConfig
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 
 
 class TestEmailEnvelopeFactory:
@@ -36,7 +37,17 @@ class TestEmailEnvelopeFactory:
         assert envelope.sender.external_id == mailbox.imap_username.lower()
         assert envelope.sender.nickname == "abc"
         assert envelope.payload["text"] == "Subject: Hello\n\nPlain text"
-        assert f"email->chatwoot:{mailbox.connector_id}:INBOX:777:42:" in idem_key
+        # Compute expected key using real IEnvelopeFactory logic
+        expected_key = IEnvelopeFactory.build_idempotency_key(
+            direction="email->chatwoot",
+            connector_id=mailbox.connector_id,
+            external_id=mailbox.imap_username.lower(),
+            message_id="<abc@example.com>",
+            imap_mailbox=mailbox.imap_mailbox,
+            uidvalidity="777",
+            uid="42",
+        )
+        assert idem_key == expected_key
 
     def test_parse_channel_request_requires_sender_email(
         self,
@@ -184,9 +195,14 @@ class TestEmailEnvelopeFactory:
             channel="email",
         )
 
-        assert (
-            idem_key == f"chatwoot->email:{mailbox.connector_id}:999:user@example.com"
+        # Compute expected key using real IEnvelopeFactory logic
+        expected_key = IEnvelopeFactory.build_idempotency_key(
+            direction="chatwoot->email",
+            connector_id=mailbox.connector_id,
+            external_id="user@example.com",
+            message_id="999",
         )
+        assert idem_key == expected_key
 
     def test_parse_chatwoot_request_with_attachments(
         self,

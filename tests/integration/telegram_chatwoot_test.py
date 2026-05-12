@@ -1,6 +1,4 @@
 import asyncio
-import os
-import tempfile
 from typing import Any
 from unittest.mock import ANY, AsyncMock
 
@@ -9,7 +7,8 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from telegram.tg_wiring import tg_settings
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
+from telegram.tg_wiring import tg_routing, tg_settings
 
 
 def _assert_delivery_confirmation_sent(mock_send_message: AsyncMock) -> None:
@@ -69,9 +68,15 @@ async def test_telegram_chatwoot(
     assert q_to_cw_res[0]["count"] == 0
 
     # Check that the record was put in the "processed_keys" table
-    assert processed_keys_res["key"] == (
-        f"telegram->chatwoot:tg1:{tg_settings.bots_config[0].bot_token[-5:]}:1234567890:300"
+    route = tg_routing.get_route_by_connector_id("tg1")
+    expected_key = IEnvelopeFactory.build_idempotency_key(
+        direction="telegram->chatwoot",
+        connector_id="tg1",
+        external_id="1234567890",
+        message_id="300",
+        bot_token_suffix=route["bot_token"][-5:],
     )
+    assert processed_keys_res["key"] == expected_key
 
     # ========== CHECK THE SECOND CALL WITH THE SAME ARGUMENTS, IT SHOULD BE PROCESSED DIFFERENTLY =========
     async with AsyncClient(
@@ -124,16 +129,10 @@ async def test_telegram_chatwoot_attachment(
         "update_id": 353411706,
     }
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-        tmp.write(b"file-bytes")
-        tmp.flush()
-        tmp_path = tmp.name
-    os.path.getsize(tmp_path)
-
     mock_send_message = AsyncMock()
     mock_deliver_message = AsyncMock()
     mock_notify = AsyncMock()
-    mock_download = AsyncMock(return_value=(tmp_path, "photos/file_1.jpg"))
+    mock_download = AsyncMock(return_value=b"fake-image-bytes")
     monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
     monkeypatch.setattr(
         "src.multichannel_gateway.infrastructure.chatwoot_client.cw_client.ChatwootClient.deliver_channel_to_chatwoot_message",
@@ -148,33 +147,30 @@ async def test_telegram_chatwoot_attachment(
         mock_notify,
     )
 
-    try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as cl:
-            response = await cl.post(
-                f"/ingest/incoming/telegram/{tg_settings.bots_config[0].connector_id}/webhook",
-                json=raw_data,
-            )
-            await asyncio.sleep(1)
-
-        assert response.status_code == 204
-        _assert_delivery_confirmation_sent(mock_send_message)
-        mock_download.assert_called_once_with(
-            ANY, tg_settings.bots_config[0].connector_id, "large_file"
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as cl:
+        response = await cl.post(
+            f"/ingest/incoming/telegram/{tg_settings.bots_config[0].connector_id}/webhook",
+            json=raw_data,
         )
-        mock_notify.assert_not_called()
+        await asyncio.sleep(1)
 
-        attachments = mock_deliver_message.call_args.kwargs["attachments"]
-        assert len(attachments) == 1
-        assert attachments[0]["kind"] == "local_file"
-        assert attachments[0]["filename"] == "photo.jpg"
-        assert attachments[0]["mime_type"] == "image/jpeg"
-        assert attachments[0]["file_type"] == "image"
-        assert attachments[0]["temp_file_path"] == tmp_path
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    assert response.status_code == 204
+    _assert_delivery_confirmation_sent(mock_send_message)
+    mock_download.assert_called_once_with(
+        ANY, tg_settings.bots_config[0].connector_id, "large_file"
+    )
+    mock_notify.assert_not_called()
+
+    attachments = mock_deliver_message.call_args.kwargs["attachments"]
+    assert len(attachments) == 1
+    assert attachments[0]["kind"] == "base64"
+    assert attachments[0]["filename"] == "photo.jpg"
+    assert attachments[0]["mime_type"] == "image/jpeg"
+    assert attachments[0]["file_type"] == "image"
+    assert attachments[0]["data_encoding"] == "base64"
+    assert "data" in attachments[0]
 
 
 @pytest.mark.order(5)
@@ -285,17 +281,10 @@ async def test_telegram_chatwoot_multi_attachments_include_animation(
         "update_id": 353411709,
     }
 
-    temp_paths: list[str] = []
-
     async def _make_tmp_file(
         _bot_manager: Any, _connector_id: str, file_id: str
-    ) -> tuple[str, str]:
-        suffix = ".gif" if file_id == "gif_1" else ".pdf"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(file_id.encode())
-            temp_paths.append(tmp.name)
-            filename = "anim.gif" if file_id == "gif_1" else "a.pdf"
-            return tmp.name, f"uploads/{filename}"
+    ) -> bytes:
+        return file_id.encode()
 
     mock_send_message = AsyncMock()
     mock_deliver_message = AsyncMock()
@@ -315,32 +304,26 @@ async def test_telegram_chatwoot_multi_attachments_include_animation(
         mock_notify,
     )
 
-    try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as cl:
-            response = await cl.post(
-                f"/ingest/incoming/telegram/{tg_settings.bots_config[0].connector_id}/webhook",
-                json=raw_data,
-            )
-            await asyncio.sleep(1)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as cl:
+        response = await cl.post(
+            f"/ingest/incoming/telegram/{tg_settings.bots_config[0].connector_id}/webhook",
+            json=raw_data,
+        )
+        await asyncio.sleep(1)
 
-        assert response.status_code == 204
-        _assert_delivery_confirmation_sent(mock_send_message)
-        assert mock_download.await_count == 2
-        mock_notify.assert_not_called()
+    assert response.status_code == 204
+    _assert_delivery_confirmation_sent(mock_send_message)
+    assert mock_download.await_count == 2
+    mock_notify.assert_not_called()
 
-        attachments = mock_deliver_message.call_args.kwargs["attachments"]
-        attachment_names = {attachment["filename"] for attachment in attachments}
-        attachment_types = {
-            attachment["filename"]: attachment["file_type"]
-            for attachment in attachments
-        }
+    attachments = mock_deliver_message.call_args.kwargs["attachments"]
+    attachment_names = {attachment["filename"] for attachment in attachments}
+    attachment_types = {
+        attachment["filename"]: attachment["file_type"] for attachment in attachments
+    }
 
-        assert attachment_names == {"a.pdf", "anim.gif"}
-        assert attachment_types["a.pdf"] == "file"
-        assert attachment_types["anim.gif"] == "image"
-    finally:
-        for path in temp_paths:
-            if os.path.exists(path):
-                os.unlink(path)
+    assert attachment_names == {"a.pdf", "anim.gif"}
+    assert attachment_types["a.pdf"] == "file"
+    assert attachment_types["anim.gif"] == "image"

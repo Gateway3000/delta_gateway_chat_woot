@@ -1,5 +1,4 @@
 import mimetypes
-import os
 from typing import Literal, Any
 
 import aiohttp
@@ -11,7 +10,6 @@ from pydantic import TypeAdapter
 from src.multichannel_gateway.core.attachment_models import (
     Base64Attachment,
     ChatwootAttachment,
-    LocalFileAttachment,
     UploadedAttachment,
 )
 from src.multichannel_gateway.core.exceptions import FatalError, TransientError
@@ -102,22 +100,7 @@ class ChatwootClient(IChatwootClient):
                 attachments=uploaded_attachments,
             )
         except FatalError:
-            logger.debug(
-                "Cleaning up temp attachments after fatal Chatwoot delivery error",
-                account_id=account_id,
-                end_user_id=end_user_id,
-                attachments_count=len(normalized_attachments),
-            )
-            self._cleanup_temp_attachments(normalized_attachments)
             raise
-        else:
-            logger.debug(
-                "Cleaning up temp attachments after successful Chatwoot delivery",
-                account_id=account_id,
-                end_user_id=end_user_id,
-                attachments_count=len(normalized_attachments),
-            )
-            self._cleanup_temp_attachments(normalized_attachments)
 
     async def _search_contact(
         self, account_id: int, identifier: str
@@ -291,13 +274,6 @@ class ChatwootClient(IChatwootClient):
                     attachment.filename,
                     attachment.mime_type,
                 )
-            else:
-                upload_result = await self._upload_file(
-                    account_id,
-                    str(attachment.temp_file_path),
-                    attachment.filename,
-                    attachment.mime_type,
-                )
 
             if upload_result and upload_result.get("signed_id"):
                 logger.debug(
@@ -311,51 +287,10 @@ class ChatwootClient(IChatwootClient):
         return signed_ids
 
     @staticmethod
-    def _cleanup_temp_attachments(attachments: list[ChatwootAttachment] | None) -> None:
-        if not attachments:
-            return
-
-        for attachment in attachments:
-            if isinstance(attachment, LocalFileAttachment) and os.path.exists(
-                attachment.temp_file_path
-            ):
-                logger.debug(
-                    "Cleaning up Chatwoot temp attachment",
-                    filename=attachment.filename,
-                    temp_file_path=str(attachment.temp_file_path),
-                )
-                os.remove(attachment.temp_file_path)
-            # Base64Attachment has no temp file to clean up
-
-    @staticmethod
     def _normalize_attachments(
         attachments: list[ChatwootAttachment] | None,
     ) -> list[ChatwootAttachment]:
         return attachments_adapter.validate_python(attachments) if attachments else []
-
-    async def _upload_file(
-        self,
-        account_id: int,
-        temp_file_path: str,
-        filename: str,
-        mime_type: str,
-    ) -> dict[str, Any] | None:
-        """Upload a file to Chatwoot and return metadata needed for message attachments."""
-        if not os.path.exists(temp_file_path):
-            logger.error("Upload file not found", path=temp_file_path)
-            return None
-
-        resolved_mime_type = mime_type
-        if not resolved_mime_type or "/" not in resolved_mime_type:
-            guessed_type, _ = mimetypes.guess_type(filename)
-            resolved_mime_type = guessed_type or "application/octet-stream"
-
-        with open(temp_file_path, "rb") as file:
-            file_content = file.read()
-
-        return await self._upload_bytes(
-            account_id, file_content, filename, resolved_mime_type
-        )
 
     async def _upload_base64_data(
         self,

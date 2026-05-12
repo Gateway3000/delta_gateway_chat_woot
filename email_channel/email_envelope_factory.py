@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from hashlib import sha1
 from typing import Any
 
 from email_channel.email_routing import EmailRouting
@@ -9,17 +8,14 @@ from src import Envelope, SenderInfo
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,
 )
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 
 
-class EmailEnvelopeFactory:
+class EmailEnvelopeFactory(IEnvelopeFactory):
     """Builds Envelope models from normalized inbound email payloads."""
 
     def __init__(self, routing: EmailRouting) -> None:
         self._routing = routing
-
-    @staticmethod
-    def _idempotency_key(from_: str, to: str, connector_id: str, *parts: str) -> str:
-        return f"{from_}->{to}:{connector_id}:{':'.join(parts)}"
 
     def parse_channel_request(
         self, raw_data: dict[str, Any], connector_id: str, channel: str
@@ -30,15 +26,14 @@ class EmailEnvelopeFactory:
         message_id = self._resolve_message_id(raw_data)
         uid = self._required_str(raw_data, "uid")
         uidvalidity = self._required_str(raw_data, "uidvalidity")
-        message_id_hash = sha1(message_id.encode("utf-8")).hexdigest()[:12]
-        idem_key = self._idempotency_key(
-            channel,
-            "chatwoot",
-            route["connector_id"],
-            route["imap_mailbox"],
-            uidvalidity,
-            uid,
-            message_id_hash,
+        idem_key = self.build_idempotency_key(
+            direction=f"{channel}->chatwoot",
+            connector_id=route["connector_id"],
+            external_id=sender["external_id"],
+            message_id=message_id,
+            imap_mailbox=route["imap_mailbox"],
+            uidvalidity=uidvalidity,
+            uid=uid,
         )
 
         payload = {
@@ -75,12 +70,11 @@ class EmailEnvelopeFactory:
         )
         sender_info = SenderInfo(external_id=sender_external_id)
         message_id = str(raw_data["conversation"]["messages"][0]["id"])
-        idempotency_key = self._idempotency_key(
-            "chatwoot",
-            channel,
-            route["connector_id"],
-            message_id,
-            sender_external_id,
+        idempotency_key = self.build_idempotency_key(
+            direction=f"chatwoot->{channel}",
+            connector_id=route["connector_id"],
+            external_id=sender_external_id,
+            message_id=message_id,
         )
         attachments = extract_chatwoot_attachments(raw_data)
 

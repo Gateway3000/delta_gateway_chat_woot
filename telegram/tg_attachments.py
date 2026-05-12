@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
+import base64
+import io
 from typing import Any
 
 import structlog
 from aiogram.exceptions import TelegramBadRequest
 
-from src.multichannel_gateway.core.attachment_models import LocalFileAttachment
+from src.multichannel_gateway.core.attachment_models import Base64Attachment
 from telegram.plugin_settings import TelegramSettings
 from telegram.tg_bot_manager import TelegramBotManager
 
@@ -24,6 +23,7 @@ def _safe_int(value: Any) -> int | None:
 
 def extract_telegram_attachments(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Extract Telegram attachment metadata from a Telegram -> Chatwoot update."""
+
     message = raw_data.get("message", {})
     attachments: list[dict[str, Any]] = []
 
@@ -148,20 +148,18 @@ def is_over_size_limit(size_bytes: int | None, max_mb: int) -> bool:
 
 async def download_telegram_attachment(
     bot_manager: TelegramBotManager, connector_id: str, file_id: str
-) -> tuple[str, str]:
-    """Download file by Telegram file_id. Returns (temp_file_path, file_path)."""
+) -> bytes:
+    """Download file by Telegram file_id. Returns file bytes."""
+
     bot = bot_manager.get_bot_by_connector_id(connector_id)
     telegram_file = await bot.get_file(file_id)
     file_path = telegram_file.file_path
     if not file_path:
         raise ValueError(f"Telegram file_path is empty for file_id={file_id}")
 
-    basename = os.path.basename(file_path) or f"{file_id}.bin"
-    temp_dir = os.path.join(tempfile.gettempdir(), "channel-gateway")
-    os.makedirs(temp_dir, exist_ok=True)
-    temp_file_path = os.path.join(temp_dir, basename)
-    await bot.download_file(file_path, destination=temp_file_path)
-    return temp_file_path, file_path
+    buffer = io.BytesIO()
+    await bot.download_file(file_path, destination=buffer)
+    return buffer.getvalue()
 
 
 async def notify_telegram_user(
@@ -171,19 +169,15 @@ async def notify_telegram_user(
     text: str,
 ) -> None:
     """Send a user notification through Telegram Bot API."""
+
     bot = bot_manager.get_bot_by_connector_id(connector_id)
     await bot.send_message(chat_id=chat_id, text=text)
 
 
-def _remove_temp_file(temp_file_path: str) -> None:
-    if temp_file_path and os.path.exists(temp_file_path):
-        os.remove(temp_file_path)
-
-
 def _resolve_attachment_file_metadata(
-    attachment: dict[str, Any], file_path: str
+    attachment: dict[str, Any],
 ) -> tuple[str, str]:
-    filename = attachment.get("filename") or os.path.basename(file_path)
+    filename = attachment.get("filename") or "unknown"
     mime_type = attachment.get("mime_type") or "application/octet-stream"
     return filename, mime_type
 
@@ -209,7 +203,7 @@ async def _prepare_single_telegram_to_chatwoot_attachment(
     connector_id: str,
     chat_id: str,
     settings: TelegramSettings,
-) -> LocalFileAttachment | None:
+) -> Base64Attachment | None:
     file_id = attachment.get("file_id")
     if not file_id:
         return None
@@ -218,40 +212,33 @@ async def _prepare_single_telegram_to_chatwoot_attachment(
         await _notify_attachment_too_large(bot_manager, connector_id, chat_id, settings)
         return None
 
-    temp_file_path = ""
     try:
-        try:
-            temp_file_path, file_path = await download_telegram_attachment(
-                bot_manager, connector_id, file_id
-            )
-        except TelegramBadRequest as exc:
-            logger.warning(
-                "Skipping unavailable Telegram attachment",
-                connector_id=connector_id,
-                chat_id=chat_id,
-                file_id=file_id,
-                error=str(exc),
-            )
-            return None
-        filename, mime_type = _resolve_attachment_file_metadata(attachment, file_path)
-
-        downloaded_size = os.path.getsize(temp_file_path)
-        if is_over_size_limit(downloaded_size, settings.chatwoot_upload_max_mb):
-            await _notify_attachment_too_large(
-                bot_manager, connector_id, chat_id, settings
-            )
-            return None
-
-        prepared_attachment = LocalFileAttachment(
-            filename=filename,
-            mime_type=mime_type,
-            file_type=attachment.get("file_type", "file"),
-            temp_file_path=Path(temp_file_path),
+        file_bytes = await download_telegram_attachment(
+            bot_manager, connector_id, file_id
         )
-        temp_file_path = ""
-        return prepared_attachment
-    finally:
-        _remove_temp_file(temp_file_path)
+    except TelegramBadRequest as exc:
+        logger.warning(
+            "Skipping unavailable Telegram attachment",
+            connector_id=connector_id,
+            chat_id=chat_id,
+            file_id=file_id,
+            error=str(exc),
+        )
+        return None
+
+    filename, mime_type = _resolve_attachment_file_metadata(attachment)
+
+    if is_over_size_limit(len(file_bytes), settings.chatwoot_upload_max_mb):
+        await _notify_attachment_too_large(bot_manager, connector_id, chat_id, settings)
+        return None
+
+    return Base64Attachment(
+        filename=filename,
+        mime_type=mime_type,
+        file_type=attachment.get("file_type", "file"),
+        data=base64.b64encode(file_bytes).decode("ascii"),
+        data_encoding="base64",
+    )
 
 
 async def prepare_telegram_to_chatwoot_attachments(
@@ -265,7 +252,7 @@ async def prepare_telegram_to_chatwoot_attachments(
     if not attachments:
         return message
 
-    prepared_attachments: list[LocalFileAttachment] = []
+    prepared_attachments: list[Base64Attachment] = []
 
     for attachment in attachments:
         prepared_attachment = await _prepare_single_telegram_to_chatwoot_attachment(

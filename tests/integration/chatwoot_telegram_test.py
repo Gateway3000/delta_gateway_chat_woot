@@ -7,7 +7,8 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.multichannel_gateway.app.app import app
-from telegram.tg_wiring import tg_settings
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
+from telegram.tg_wiring import tg_routing, tg_settings
 
 
 @pytest.mark.order(2)
@@ -43,8 +44,9 @@ async def test_chatwoot_telegram(
 
     async with get_db_pool.acquire() as conn:
         q_from_cw_res = await conn.fetch("SELECT COUNT(*) FROM pgmq.q_from_cw")
+        # Get the processed key for this specific test case
         last_processed_key_res = await conn.fetchrow(
-            "SELECT * FROM pgmq.processed_keys ORDER BY key DESC LIMIT 1"
+            "SELECT * FROM pgmq.processed_keys WHERE key LIKE 'chatwoot->telegram:%' ORDER BY key DESC LIMIT 1"
         )
 
     assert response.status_code == 204
@@ -55,9 +57,17 @@ async def test_chatwoot_telegram(
     assert q_from_cw_res[0]["count"] == 0
 
     # Check that the record was put in the "processed_keys" table
-    assert (
-        last_processed_key_res["key"] == "telegram->chatwoot:tg1:Ndf5x:1234567890:300"
+    # Compute expected key using the same logic as IEnvelopeFactory
+    route = tg_routing.get_route_by_inbox_id("18")
+    expected_key = IEnvelopeFactory.build_idempotency_key(
+        direction="chatwoot->telegram",
+        connector_id=route["connector_id"],
+        external_id="123321",
+        message_id="60538",
+        bot_token_suffix=route["bot_token"][-5:],
     )
+    stored_key = last_processed_key_res["key"]
+    assert stored_key == expected_key
 
     # ========== CHECK THE SECOND CALL WITH THE SAME ARGUMENTS, IT SHOULD BE PROCESSED DIFFERENTLY =========
     async with AsyncClient(

@@ -1,7 +1,6 @@
 from .attachment_models import (
     Base64Attachment,
     ChatwootAttachment,
-    LocalFileAttachment,
     UploadedAttachment,
 )
 from .core_models import ChannelDeliveryResult, Envelope, SenderInfo, SenderInfoKey
@@ -23,7 +22,6 @@ __all__ = [
     "Envelope",
     "FatalError",
     "IdempotencyKeyAlreadyProcessedError",
-    "LocalFileAttachment",
     "RateLimitError",
     "SenderInfo",
     "SenderInfoKey",
