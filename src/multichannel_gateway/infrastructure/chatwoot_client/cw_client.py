@@ -9,6 +9,7 @@ from aiohttp.client_exceptions import ContentTypeError
 from pydantic import TypeAdapter
 
 from src.multichannel_gateway.core.attachment_models import (
+    Base64Attachment,
     ChatwootAttachment,
     LocalFileAttachment,
     UploadedAttachment,
@@ -283,18 +284,26 @@ class ChatwootClient(IChatwootClient):
                 signed_ids.append(attachment.signed_id)
                 continue
 
-            upload_result = await self._upload_file(
-                account_id,
-                str(attachment.temp_file_path),
-                attachment.filename,
-                attachment.mime_type,
-            )
+            if isinstance(attachment, Base64Attachment):
+                upload_result = await self._upload_base64_data(
+                    account_id,
+                    attachment.data,
+                    attachment.filename,
+                    attachment.mime_type,
+                )
+            else:
+                upload_result = await self._upload_file(
+                    account_id,
+                    str(attachment.temp_file_path),
+                    attachment.filename,
+                    attachment.mime_type,
+                )
+
             if upload_result and upload_result.get("signed_id"):
                 logger.debug(
                     "Chatwoot attachment uploaded",
                     account_id=account_id,
                     filename=attachment.filename,
-                    temp_file_path=str(attachment.temp_file_path),
                     signed_id=str(upload_result["signed_id"]),
                 )
                 signed_ids.append(str(upload_result["signed_id"]))
@@ -316,6 +325,7 @@ class ChatwootClient(IChatwootClient):
                     temp_file_path=str(attachment.temp_file_path),
                 )
                 os.remove(attachment.temp_file_path)
+            # Base64Attachment has no temp file to clean up
 
     @staticmethod
     def _normalize_attachments(
@@ -340,6 +350,50 @@ class ChatwootClient(IChatwootClient):
             guessed_type, _ = mimetypes.guess_type(filename)
             resolved_mime_type = guessed_type or "application/octet-stream"
 
+        with open(temp_file_path, "rb") as file:
+            file_content = file.read()
+
+        return await self._upload_bytes(
+            account_id, file_content, filename, resolved_mime_type
+        )
+
+    async def _upload_base64_data(
+        self,
+        account_id: int,
+        base64_data: str,
+        filename: str,
+        mime_type: str,
+    ) -> dict[str, Any] | None:
+        """Upload base64-encoded data to Chatwoot."""
+        import base64
+
+        resolved_mime_type = mime_type
+        if not resolved_mime_type or "/" not in resolved_mime_type:
+            guessed_type, _ = mimetypes.guess_type(filename)
+            resolved_mime_type = guessed_type or "application/octet-stream"
+
+        try:
+            file_content = base64.b64decode(base64_data)
+        except Exception as exc:
+            logger.error(
+                "Failed to decode base64 attachment",
+                filename=filename,
+                error=str(exc),
+            )
+            return None
+
+        return await self._upload_bytes(
+            account_id, file_content, filename, resolved_mime_type
+        )
+
+    async def _upload_bytes(
+        self,
+        account_id: int,
+        file_content: bytes,
+        filename: str,
+        mime_type: str,
+    ) -> dict[str, Any] | None:
+        """Upload raw bytes to Chatwoot."""
         url = f"{self.base_url}/api/v1/accounts/{account_id}/upload"
         headers = {
             key: value
@@ -347,15 +401,12 @@ class ChatwootClient(IChatwootClient):
             if key.lower() != "content-type"
         }
 
-        with open(temp_file_path, "rb") as file:
-            file_content = file.read()
-
         data = aiohttp.FormData()
         data.add_field(
             name="attachment",
             value=file_content,
             filename=filename,
-            content_type=resolved_mime_type,
+            content_type=mime_type,
         )
 
         try:
@@ -369,7 +420,6 @@ class ChatwootClient(IChatwootClient):
                 "Chatwoot attachment upload transient error",
                 account_id=account_id,
                 filename=filename,
-                temp_file_path=temp_file_path,
                 error=repr(exc),
             )
             raise TransientError(f"Chatwoot upload failed: {exc}") from exc
@@ -389,7 +439,7 @@ class ChatwootClient(IChatwootClient):
         return {
             "signed_id": signed_id,
             "file_url": file_url,
-            "file_type": response_data.get("file_type", resolved_mime_type),
+            "file_type": response_data.get("file_type", mime_type),
             "file_size": response_data.get("file_size"),
         }
 

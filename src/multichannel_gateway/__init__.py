@@ -1,6 +1,7 @@
 from .app import Environment, Settings, TelemetrySettings
 from .app.workers import BaseWorker, ChannelToChatwootWorker, ChatwootToChannelWorker
 from .core import (
+    Base64Attachment,
     ChatwootAttachment,
     ChannelDeliveryResult,
     ConnectorNotFoundError,
@@ -28,6 +29,7 @@ from .infrastructure import (
 )
 
 __all__ = [
+    "Base64Attachment",
     "BaseWorker",
     "ChatwootAttachment",
     "ChatwootClient",

@@ -33,6 +33,7 @@ dependencies = [
 
 [project.entry-points."multichannel_gateway.channels"]
 telegram = "telegram.tg_wiring:telegram_channel"
+email = "email_channel.email_wiring:email_channel"
 
 [project.optional-dependencies]
 sentry = [

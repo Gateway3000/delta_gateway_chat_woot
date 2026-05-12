@@ -1,10 +1,14 @@
 import asyncio
+import logging
+import sys
 
 import uvicorn
 
 from multichannel_gateway import Environment
 from src.multichannel_gateway.app.utils import wait_until_database_ready
 from src.multichannel_gateway.app.wiring import settings, pgmq, registry
+
+logger = logging.getLogger(__name__)
 
 
 async def prepare_app() -> None:
@@ -14,7 +18,11 @@ async def prepare_app() -> None:
 
 
 def run() -> None:
-    asyncio.run(prepare_app())
+    try:
+        asyncio.run(prepare_app())
+    except ConnectionError as e:
+        logger.error(e)
+        sys.exit(1)
     uvicorn.run(
         "src.multichannel_gateway.app.app:app",
         host="0.0.0.0",

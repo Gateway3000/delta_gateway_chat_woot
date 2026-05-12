@@ -79,6 +79,31 @@ python main.py
 | **CHATWOOT_BASE_URL**                               | Base URL of your Chatwoot instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **LOG_LEVEL**                                       | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **ANONYMIZE_USERS**                                 | Generates a random username made up of numbers, an adjective, and a noun                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **CHANNELS**                                        | Determines which channels to load from available entry points (see documentation below). If not set, all discovered channels are loaded.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+### Configuring CHANNELS
+
+The `CHANNELS` variable determines which channels should be loaded from available entry points.
+
+**Correct formats:**
+
+```bash
+# JSON array (recommended)
+CHANNELS='["Telegram", "Email"]'
+
+# Python list syntax
+CHANNELS=["Telegram"]
+
+# Multiple channels separated by comma
+CHANNELS="Telegram", "Email"
+```
+
+**Incorrect format (will cause validation error):**
+
+```bash
+# WRONG: single value without array
+CHANNELS="Telegram"
+```
 
 ## 3. Testing
 
@@ -284,6 +309,31 @@ python main.py
 | **CHATWOOT_BASE_URL**                               | Базовая URL вашего Chatwoot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **LOG_LEVEL**                                       | Уровень логирования: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **ANONYMIZE_USERS**                                 | Генерирует произвольное имя пользователя, состоящее из цифр, прилагательного и существительного                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **CHANNELS**                                        | Определяет, какие каналы загружать из доступных entry points (см. документацию ниже). Если не задана — загружаются все обнаруженные каналы.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+### Настройка CHANNELS
+
+Переменная `CHANNELS` определяет, какие каналы должны быть загружены из доступных entry points.
+
+**Правильные форматы записи:**
+
+```bash
+# JSON-массив (рекомендуется)
+CHANNELS='["Telegram", "Email"]'
+
+# Python-синтаксис списка
+CHANNELS=["Telegram"]
+
+# Несколько каналов через запятую
+CHANNELS="Telegram", "Email"
+```
+
+**Неправильный формат (приведет к ошибке валидации):**
+
+```bash
+# НЕПРАВИЛЬНО: одиночное значение без массива
+CHANNELS="Telegram"
+```
 
 ## 3. Тестирование
 

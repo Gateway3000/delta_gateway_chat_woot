@@ -52,7 +52,7 @@ class TestStartupDatabaseRetry:
         original_sleep = runtime_module.asyncio.sleep
         runtime_module.asyncio.sleep = sleep_mock
         try:
-            with pytest.raises(TransientError):
+            with pytest.raises(ConnectionError):
                 await wait_until_database_ready(pgmq)
         finally:
             runtime_module.asyncio.sleep = original_sleep

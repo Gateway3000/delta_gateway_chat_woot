@@ -1,3 +1,5 @@
+from typing import Any
+
 import structlog
 from fastapi import HTTPException, APIRouter, status
 from fastapi.requests import Request
@@ -27,27 +29,35 @@ router = APIRouter()
 tracer: Tracer = get_tracer(__name__)
 
 
-@router.post("/ingest/incoming/{channel}/{connector_id}/webhook")
-async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Response:
-    """An endpoint for handling Channel -> Chatwoot webhooks."""
-
+async def handle_channel_payload(
+    channel: str, connector_id: str, payload: dict[str, Any]
+) -> Response | None:
     with tracer.start_as_current_span("webhook.channel_to_chatwoot") as span:
         set_span_attributes(
             span,
             build_webhook_attributes(channel, connector_id=connector_id),
         )
-        raw_data = await request.json()
-        raw_data["channel"] = channel
-        raw_data["connector_id"] = connector_id
+
+        payload["channel"] = channel
+        payload["connector_id"] = connector_id
+
         try:
-            await channel_to_chatwoot_orchestrator.process(channel, raw_data)
+            await channel_to_chatwoot_orchestrator.process(channel, payload)
             mark_span_ok(span)
         except Exception as e:
-            if response := _handle_exceptions(e, span, raw_data):
+            if response := _handle_exceptions(e, span, payload):
                 return response
             raise
-        logger.debug(f"{channel.capitalize()}->Chatwoot webhook processed successfully")
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return None
+
+
+@router.post("/ingest/incoming/{channel}/{connector_id}/webhook")
+async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Response:
+    """An endpoint for handling Channel -> Chatwoot webhooks."""
+    raw_data = await request.json()
+    if response := await handle_channel_payload(channel, connector_id, raw_data):
+        return response
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/ingest/outgoing/{channel}/{cw_account_id}/webhook")

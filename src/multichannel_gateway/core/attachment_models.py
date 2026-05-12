@@ -17,4 +17,13 @@ class LocalFileAttachment(BaseModel):
     temp_file_path: Path
 
 
-ChatwootAttachment = UploadedAttachment | LocalFileAttachment
+class Base64Attachment(BaseModel):
+    kind: Literal["base64"] = "base64"
+    filename: str
+    mime_type: str
+    file_type: str = "file"
+    data: str
+    data_encoding: str = "base64"
+
+
+ChatwootAttachment = UploadedAttachment | LocalFileAttachment | Base64Attachment
