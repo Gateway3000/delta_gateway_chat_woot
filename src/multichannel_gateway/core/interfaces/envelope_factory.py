@@ -44,3 +44,14 @@ class IEnvelopeFactory(ABC):
         )
 
         return f"{direction}:{connector_id}:{extra_hash}:{_hash(external_id)}:{_hash(message_id)}"
+
+    @staticmethod
+    def _add_channel_prefix(raw_id: str | int, channel: str) -> str:
+        return f"{channel}_{raw_id}"
+
+    @staticmethod
+    def _strip_channel_prefix(identifier: str, channel: str) -> str:
+        prefix = f"{channel}_"
+        if isinstance(identifier, str) and identifier.startswith(prefix):
+            return identifier[len(prefix) :]
+        return identifier

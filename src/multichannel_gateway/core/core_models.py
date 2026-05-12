@@ -9,6 +9,7 @@ class SenderInfo(BaseModel):
     """Information about the message sender in a communication channel."""
 
     external_id: str | int
+    raw_external_id: str | int | None = None
     name: str | None = None
     nickname: str | None = None
 

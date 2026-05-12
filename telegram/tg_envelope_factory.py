@@ -54,8 +54,9 @@ class TelegramEnvelopeFactory(IEnvelopeFactory):
     ) -> tuple[str, Envelope]:
         route = self._routing.get_route_by_inbox_id(str(raw_data["inbox"]["id"]))
         attachments = extract_chatwoot_attachments(raw_data)
+        identifier = raw_data["conversation"]["meta"]["sender"]["identifier"]
         sender_info = SenderInfo(
-            external_id=raw_data["conversation"]["meta"]["sender"]["identifier"],
+            external_id=identifier,
         )
 
         message_id = str(raw_data["conversation"]["messages"][0]["id"])

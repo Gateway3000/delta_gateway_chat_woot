@@ -1,6 +1,7 @@
 from typing import Any
 
 from src.multichannel_gateway.core import generate_username
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 from src.multichannel_gateway.infrastructure import ChannelRegistry
 
 
@@ -16,6 +17,13 @@ class ChannelToChatwootOrchestrator:
     async def process(self, channel_name: str, raw_data: dict[str, Any]) -> None:
         channel = self._registry.get_channel(channel_name)
         idempotency_key, envelope = await channel.build_channel_message(raw_data)
+
+        raw_id = envelope.sender.external_id
+        envelope.sender.raw_external_id = raw_id
+        envelope.sender.external_id = IEnvelopeFactory._add_channel_prefix(
+            raw_id, channel_name
+        )
+
         if self._anonymize_users:
             envelope.sender.name = generate_username()[0]
 

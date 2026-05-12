@@ -37,7 +37,7 @@ class TelegramTransport:
             await limiter(0.3)
             if text:
                 msg = await bot.send_message(
-                    chat_id=envelope.sender["external_id"],
+                    chat_id=envelope.sender.external_id,
                     text=text,
                 )
                 sent_message_ids.append(str(msg.message_id))
@@ -51,22 +51,22 @@ class TelegramTransport:
                 file_type = attachment.get("file_type", "file")
                 if file_type == "image":
                     sent = await bot.send_photo(
-                        chat_id=envelope.sender["external_id"],
+                        chat_id=envelope.sender.external_id,
                         photo=input_file,
                     )
                 elif file_type == "video":
                     sent = await bot.send_video(
-                        chat_id=envelope.sender["external_id"],
+                        chat_id=envelope.sender.external_id,
                         video=input_file,
                     )
                 elif file_type == "audio":
                     sent = await bot.send_audio(
-                        chat_id=envelope.sender["external_id"],
+                        chat_id=envelope.sender.external_id,
                         audio=input_file,
                     )
                 else:
                     sent = await bot.send_document(
-                        chat_id=envelope.sender["external_id"],
+                        chat_id=envelope.sender.external_id,
                         document=input_file,
                     )
                 sent_message_ids.append(str(sent.message_id))
