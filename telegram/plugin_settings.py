@@ -17,3 +17,4 @@ class TelegramSettings(Settings):
     oversize_file_message: str = (
         "The file is too large to forward. Please send a smaller file."
     )
+    enable_channel_delivery_confirmation: bool = False

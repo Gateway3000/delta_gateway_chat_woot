@@ -71,7 +71,8 @@ class TelegramMessageProcessor:
             )
 
         await self._process_queue(self._iqn, idempotency_key, envelope)
-        await self._send_delivery_confirmation(bot, raw_data)
+        if self._settings.enable_channel_delivery_confirmation:
+            await self._send_delivery_confirmation(bot, raw_data)
 
     async def publish_chatwoot_message(
         self, raw_data: dict[str, Any], cw_account_id: str, channel: str
