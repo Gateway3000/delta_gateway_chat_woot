@@ -106,9 +106,9 @@ def _handle_exceptions(
 
     if isinstance(exc, WrongUpdateTypeError):
         mark_span_error(span, exc)
-        logger.error("WrongUpdateTypeError", error=repr(exc), raw_data=raw_data)
+        logger.warning("WrongUpdateTypeError", error=repr(exc), raw_data=raw_data)
         raise HTTPException(
-            status.HTTP_404_NOT_FOUND, detail="Wrong update type"
+            status.HTTP_204_NO_CONTENT, detail="Wrong update type"
         ) from exc
 
     if isinstance(exc, IdempotencyKeyAlreadyProcessedError):

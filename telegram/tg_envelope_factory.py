@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from src import Envelope, SenderInfo
+from src.multichannel_gateway import WrongUpdateTypeError
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,
 )
@@ -94,7 +95,10 @@ class TelegramEnvelopeFactory(IEnvelopeFactory):
 
     @staticmethod
     def _parse_sender_info(raw_data: dict[str, Any]) -> SenderInfo:
-        message_from_info = raw_data["message"]["from"]
+        try:
+            message_from_info = raw_data["message"]["from"]
+        except KeyError as e:
+            raise WrongUpdateTypeError from e
         full_name_formed = f"{message_from_info.get('first_name', ' ')} {message_from_info.get('last_name', ' ')}".strip()
 
         return SenderInfo(
