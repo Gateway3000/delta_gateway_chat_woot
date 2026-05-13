@@ -16,6 +16,7 @@ from src.multichannel_gateway.core import (
     TransientError,
     WrongUpdateTypeError,
 )
+from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 from src.multichannel_gateway.infrastructure.telemetry import (
     build_webhook_attributes,
     mark_span_error,
@@ -72,6 +73,10 @@ async def from_chatwoot(channel: str, cw_account_id: str, request: Request) -> R
         raw_data = await request.json()
         if raw_data.get("message_type") == "outgoing":
             try:
+                identifier = raw_data["conversation"]["meta"]["sender"]["identifier"]
+                raw_data["conversation"]["meta"]["sender"]["identifier"] = (
+                    IEnvelopeFactory._strip_channel_prefix(identifier, channel)
+                )
                 channel_ = registry.get_channel(channel)
                 await channel_.publish_chatwoot_message(raw_data, cw_account_id)
                 mark_span_ok(span)
