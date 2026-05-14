@@ -7,8 +7,7 @@
 
 ## Минимальные требования
 
-1. Реализовать контракт `IChannel`
-   из [src/multichannel_gateway/core/interfaces/channel.py](C:\Users\Aoto\PycharmProjects\ChannelGateway\src\multichannel_gateway\core\interfaces\channel.py).
+1. Реализовать контракт `IChannel` из `src/multichannel_gateway/core/interfaces/channel.py`
 2. Экспортировать готовый объект канала (instance), у которого заполнено поле `channel`.
 3. Добавить entry point в `pyproject.toml` пакета адаптера.
 
@@ -16,13 +15,13 @@
 
 Пример структуры:
 
-- `my_channel/my_wiring.py`
-- `my_channel/my_channel.py`
+- `channels/my_channel/my_wiring.py`
+- `channels/my_channel/my_channel.py`
 
 В `my_wiring.py` должен быть создан объект канала:
 
 ```python
-from my_channel.my_channel import MyChannel
+from channels.my_channel.my_channel import MyChannel
 
 my_channel = MyChannel(...)
 ```
@@ -35,13 +34,13 @@ my_channel = MyChannel(...)
 
 ```toml
 [project.entry-points."multichannel_gateway.channels"]
-my_channel = "my_channel.my_wiring:my_channel"
+my_channel = "channels.my_channel.my_wiring:my_channel"
 ```
 
 Где:
 
 - `my_channel` (слева) — имя plugin entry;
-- `my_channel.my_wiring:my_channel` — путь к instance.
+- `channels.my_channel.my_wiring:my_channel` — путь к instance.
 
 ## Шаг 3. Установите пакет адаптера в окружение Gateway
 

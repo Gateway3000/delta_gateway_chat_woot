@@ -24,7 +24,7 @@
 - `EmailTransport` отправляет письмо через Gmail SMTP с STARTTLS
 - Поддерживает threading headers (`In-Reply-To`, `References`)
 - Поддерживает вложения из Chatwoot (скачивание по `data_url`, лимит задаётся параметром `channel_upload_max_mb` в
-  настройках плагина: `email_channel/plugin_settings.py`)
+  настройках плагина: `channels/email_channel/plugin_settings.py`)
 - Возвращает `ChannelDeliveryResult` со статусом доставки
 
 ## Предварительные требования
@@ -80,9 +80,9 @@ MAILBOXES_CONFIG='[{
 POLL_INTERVAL_SECONDS=5.0
 ```
 
-| Поле | Тип | По умолчанию | Описание |
-|------|-----|-------------|----------|
-| `POLL_INTERVAL_SECONDS` | float | `5.0` | Интервал между последовательными проверками IMAP (в секундах) |
+| Поле                    | Тип   | По умолчанию | Описание                                                      |
+|-------------------------|-------|--------------|---------------------------------------------------------------|
+| `POLL_INTERVAL_SECONDS` | float | `5.0`        | Интервал между последовательными проверками IMAP (в секундах) |
 
 ### Параметры конфигурации
 
@@ -127,7 +127,7 @@ uv run python -c "from importlib.metadata import entry_points; print([f'{e.name}
 Ожидается вывод:
 
 ```
-['telegram=telegram.tg_wiring:telegram_channel', 'email=email_channel.email_wiring:email_channel']
+['email=channels.email_channel.email_wiring:email_channel', 'telegram=channels.telegram_channel.tg_wiring:telegram_channel']
 ```
 
 ### 2. Запустите Gateway
@@ -204,4 +204,5 @@ IMAP connection failed after all retries  connector_id=email-support max_attempt
 
 - Поддерживается только Gmail IMAP/SMTP
 - Нет IMAP IDLE (только polling)
-- Лимит вложений задаётся параметром `channel_upload_max_mb` (настройки плагина: `email_channel/plugin_settings.py`)
+- Лимит вложений задаётся параметром `channel_upload_max_mb` (настройки плагина:
+  `channels/email_channel/plugin_settings.py`)

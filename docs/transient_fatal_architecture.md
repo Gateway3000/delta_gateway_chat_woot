@@ -73,7 +73,7 @@
 
 ### 2. Канал (на примере Telegram)
 
-Файл: `telegram/tg_transport.py`.
+Файл: `channels/telegram_channel/tg_transport.py`.
 
 `TelegramTransport.send_to_telegram_user(...)` не возвращает неуспешный результат, а поднимает доменные исключения
 напрямую:
