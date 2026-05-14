@@ -1,11 +1,11 @@
 from typing import Any
 
+from channels.telegram_channel.tg_bot_manager import TelegramBotManager
+from channels.telegram_channel.tg_message_processor import TelegramMessageProcessor
+from channels.telegram_channel.tg_routing import TelegramRouting
+from channels.telegram_channel.tg_transport import TelegramTransport
+from channels.telegram_channel.tg_wh_manager import TelegramWebhookManager
 from src import IChannel, ChannelDeliveryResult, Envelope
-from telegram.tg_bot_manager import TelegramBotManager
-from telegram.tg_message_processor import TelegramMessageProcessor
-from telegram.tg_routing import TelegramRouting
-from telegram.tg_transport import TelegramTransport
-from telegram.tg_wh_manager import TelegramWebhookManager
 
 
 class TelegramChannel(IChannel):

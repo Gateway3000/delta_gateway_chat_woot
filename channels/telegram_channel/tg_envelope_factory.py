@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Any
 
+from channels.telegram_channel.tg_attachments import extract_telegram_attachments
+from channels.telegram_channel.tg_routing import TelegramRouting
 from src import Envelope, SenderInfo
 from src.multichannel_gateway import WrongUpdateTypeError
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,
 )
 from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
-from telegram.tg_attachments import extract_telegram_attachments
-from telegram.tg_routing import TelegramRouting
 
 
 class TelegramEnvelopeFactory(IEnvelopeFactory):

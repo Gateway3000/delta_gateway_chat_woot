@@ -6,9 +6,9 @@ import asyncpg
 import pytest
 from httpx import AsyncClient, ASGITransport
 
+from channels.telegram_channel.tg_wiring import tg_routing, tg_settings
 from src.multichannel_gateway.app.app import app
 from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
-from telegram.tg_wiring import tg_routing, tg_settings
 
 
 def _assert_delivery_confirmation_sent(mock_send_message: AsyncMock) -> None:
@@ -139,11 +139,11 @@ async def test_telegram_chatwoot_attachment(
         mock_deliver_message,
     )
     monkeypatch.setattr(
-        "telegram.tg_attachments.download_telegram_attachment",
+        "channels.telegram_channel.tg_attachments.download_telegram_attachment",
         mock_download,
     )
     monkeypatch.setattr(
-        "telegram.tg_attachments.notify_telegram_user",
+        "channels.telegram_channel.tg_attachments.notify_telegram_user",
         mock_notify,
     )
 
@@ -212,11 +212,11 @@ async def test_telegram_chatwoot_attachment_oversize_notifies_user(
         mock_deliver_message,
     )
     monkeypatch.setattr(
-        "telegram.tg_attachments.download_telegram_attachment",
+        "channels.telegram_channel.tg_attachments.download_telegram_attachment",
         mock_download,
     )
     monkeypatch.setattr(
-        "telegram.tg_attachments.notify_telegram_user",
+        "channels.telegram_channel.tg_attachments.notify_telegram_user",
         mock_notify,
     )
 
@@ -296,11 +296,11 @@ async def test_telegram_chatwoot_multi_attachments_include_animation(
         mock_deliver_message,
     )
     monkeypatch.setattr(
-        "telegram.tg_attachments.download_telegram_attachment",
+        "channels.telegram_channel.tg_attachments.download_telegram_attachment",
         mock_download,
     )
     monkeypatch.setattr(
-        "telegram.tg_attachments.notify_telegram_user",
+        "channels.telegram_channel.tg_attachments.notify_telegram_user",
         mock_notify,
     )
 

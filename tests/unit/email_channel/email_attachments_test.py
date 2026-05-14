@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from aioresponses import aioresponses
 
-from email_channel.email_attachments import (
+from channels.email_channel.email_attachments import (
     download_attachment,
     extract_filename_from_url,
     get_extension_from_mime,
@@ -114,7 +114,7 @@ class TestPrepareAttachmentsData:
         ]
 
         with patch(
-            "email_channel.email_attachments.download_attachment",
+            "channels.email_channel.email_attachments.download_attachment",
             AsyncMock(return_value=b"pdf"),
         ):
             result = await prepare_attachments_data(attachments)
@@ -135,7 +135,7 @@ class TestPrepareAttachmentsData:
     async def test_skips_failed_download(self) -> None:
         attachments = [{"data_url": "https://example.com/file.pdf"}]
         with patch(
-            "email_channel.email_attachments.download_attachment",
+            "channels.email_channel.email_attachments.download_attachment",
             AsyncMock(return_value=None),
         ):
             result = await prepare_attachments_data(attachments)
@@ -145,7 +145,7 @@ class TestPrepareAttachmentsData:
     async def test_uses_default_mime_when_missing(self) -> None:
         attachments = [{"data_url": "https://example.com/file.pdf"}]
         with patch(
-            "email_channel.email_attachments.download_attachment",
+            "channels.email_channel.email_attachments.download_attachment",
             AsyncMock(return_value=b"data"),
         ):
             result = await prepare_attachments_data(attachments)

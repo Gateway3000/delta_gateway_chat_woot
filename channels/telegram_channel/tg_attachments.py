@@ -7,9 +7,9 @@ from typing import Any
 import structlog
 from aiogram.exceptions import TelegramBadRequest
 
+from channels.telegram_channel.plugin_settings import TelegramSettings
+from channels.telegram_channel.tg_bot_manager import TelegramBotManager
 from src.multichannel_gateway.core.attachment_models import Base64Attachment
-from telegram.plugin_settings import TelegramSettings
-from telegram.tg_bot_manager import TelegramBotManager
 
 logger = structlog.get_logger(__name__)
 

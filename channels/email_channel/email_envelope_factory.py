@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from email_channel.email_routing import EmailRouting
+from channels.email_channel.email_routing import EmailRouting
 from src import Envelope, SenderInfo
 from src.multichannel_gateway.app.chatwoot_attachments import (
     extract_chatwoot_attachments,

@@ -7,8 +7,8 @@ from typing import Any
 
 import structlog
 
-from email_channel.email_mime_parser import EmailMimeParser, ParsedEmail
-from email_channel.plugin_settings import MailboxConfig
+from channels.email_channel.email_mime_parser import EmailMimeParser, ParsedEmail
+from channels.email_channel.plugin_settings import MailboxConfig
 
 logger = structlog.get_logger(__name__)
 

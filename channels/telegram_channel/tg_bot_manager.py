@@ -1,7 +1,7 @@
 import structlog
 from aiogram import Bot
 
-from telegram.plugin_settings import BotConfig
+from channels.telegram_channel.plugin_settings import BotConfig
 
 logger = structlog.get_logger(__name__)
 

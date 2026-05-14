@@ -6,9 +6,9 @@ import asyncpg
 import pytest
 from httpx import AsyncClient, ASGITransport
 
+from channels.telegram_channel.tg_wiring import tg_routing, tg_settings
 from src.multichannel_gateway.app.app import app
 from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
-from telegram.tg_wiring import tg_routing, tg_settings
 
 
 @pytest.mark.order(2)

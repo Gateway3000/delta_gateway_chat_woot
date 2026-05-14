@@ -1,4 +1,4 @@
-from email_channel.plugin_settings import MailboxConfig
+from channels.email_channel.plugin_settings import MailboxConfig
 from src import ConnectorNotFoundError
 
 

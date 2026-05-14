@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from email_channel.email_imap_watcher import EmailImapWatcher
+from channels.email_channel.email_imap_watcher import EmailImapWatcher
 
 
 class TestEmailImapWatcher:

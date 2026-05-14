@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from email_channel import (
+from channels.email_channel import (
     EmailImapClient,
     EmailRouting,
     EmailTransport,
@@ -11,7 +11,7 @@ from email_channel import (
     EmailEnvelopeFactory,
     EmailChannel,
 )
-from email_channel.plugin_settings import EmailSettings, MailboxConfig
+from channels.email_channel.plugin_settings import EmailSettings, MailboxConfig
 from src import PGMessageQueue
 
 

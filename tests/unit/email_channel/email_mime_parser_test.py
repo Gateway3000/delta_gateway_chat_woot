@@ -2,7 +2,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from email_channel import EmailMimeParser
+from channels.email_channel import EmailMimeParser
 
 
 def _make_email(

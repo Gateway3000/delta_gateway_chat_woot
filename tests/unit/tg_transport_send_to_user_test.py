@@ -11,15 +11,15 @@ from aiogram.exceptions import (
 from aiogram.methods import SendMessage
 from aiogram.types import Message
 
+from channels.telegram_channel.tg_bot_manager import TelegramBotManager
+from channels.telegram_channel.tg_channel import TelegramChannel
+from channels.telegram_channel.tg_transport import TelegramTransport
 from src import ChannelDeliveryResult
 from src.multichannel_gateway.core.exceptions import (
     FatalError,
     RateLimitError,
     TransientError,
 )
-from telegram.tg_bot_manager import TelegramBotManager
-from telegram.tg_channel import TelegramChannel
-from telegram.tg_transport import TelegramTransport
 
 
 def _build_bot_manager(bot: Bot) -> TelegramBotManager:

@@ -1,11 +1,11 @@
-from email_channel.email_channel import EmailChannel
-from email_channel.email_envelope_factory import EmailEnvelopeFactory
-from email_channel.email_imap_client import EmailImapClient
-from email_channel.email_imap_watcher import EmailImapWatcher
-from email_channel.email_message_processor import EmailMessageProcessor
-from email_channel.email_routing import EmailRouting
-from email_channel.email_transport import EmailTransport
-from email_channel.plugin_settings import EmailSettings
+from channels.email_channel.email_channel import EmailChannel
+from channels.email_channel.email_envelope_factory import EmailEnvelopeFactory
+from channels.email_channel.email_imap_client import EmailImapClient
+from channels.email_channel.email_imap_watcher import EmailImapWatcher
+from channels.email_channel.email_message_processor import EmailMessageProcessor
+from channels.email_channel.email_routing import EmailRouting
+from channels.email_channel.email_transport import EmailTransport
+from channels.email_channel.plugin_settings import EmailSettings
 from src import pgmq
 
 email_settings = EmailSettings()

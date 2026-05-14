@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from email_channel import EmailTransport
-from email_channel.plugin_settings import EmailSettings, MailboxConfig
+from channels.email_channel import EmailTransport
+from channels.email_channel.plugin_settings import EmailSettings, MailboxConfig
 from src.multichannel_gateway.core.exceptions import (
     FatalError,
     TransientError,
@@ -59,7 +59,7 @@ class TestEmailTransport:
         mailbox = settings.mailboxes_config[0]
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_server = MagicMock()
             mock_smtp.return_value.__enter__.return_value = mock_server
 
@@ -77,7 +77,7 @@ class TestEmailTransport:
         mailbox = settings.mailboxes_config[0]
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = ConnectionRefusedError("Connection refused")
 
             with pytest.raises(TransientError):
@@ -92,7 +92,7 @@ class TestEmailTransport:
         mailbox = settings.mailboxes_config[0]
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = smtplib.SMTPAuthenticationError(
                 535, b"Authentication failed"
             )
@@ -109,7 +109,7 @@ class TestEmailTransport:
         mailbox = settings.mailboxes_config[0]
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_server = MagicMock()
             mock_server.sendmail.side_effect = smtplib.SMTPRecipientsRefused(
                 {"user@example.com": (550, b"User unknown")}
@@ -125,7 +125,7 @@ class TestEmailTransport:
     ) -> None:
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = smtplib.SMTPDataError(450, b"Temporary failure")
 
             with pytest.raises(TransientError):
@@ -137,7 +137,7 @@ class TestEmailTransport:
     ) -> None:
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = smtplib.SMTPDataError(554, b"Transaction failed")
 
             with pytest.raises(FatalError):
@@ -149,7 +149,7 @@ class TestEmailTransport:
     ) -> None:
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = smtplib.SMTPServerDisconnected("Disconnected")
 
             with pytest.raises(TransientError):
@@ -161,7 +161,7 @@ class TestEmailTransport:
     ) -> None:
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = smtplib.SMTPException("Generic error")
 
             with pytest.raises(FatalError):
@@ -173,7 +173,7 @@ class TestEmailTransport:
     ) -> None:
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = OSError("Network error")
 
             with pytest.raises(TransientError):
@@ -185,7 +185,7 @@ class TestEmailTransport:
     ) -> None:
         message = _make_message(mailbox)
 
-        with patch("email_channel.email_transport.smtplib.SMTP") as mock_smtp:
+        with patch("channels.email_channel.email_transport.smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = Exception("Generic failure")
 
             with pytest.raises(FatalError):

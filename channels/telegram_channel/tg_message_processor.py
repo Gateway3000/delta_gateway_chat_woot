@@ -3,17 +3,19 @@ from typing import Any
 import structlog
 from aiogram import Bot
 
+from channels.telegram_channel.plugin_settings import TelegramSettings
+from channels.telegram_channel.tg_attachments import (
+    prepare_telegram_to_chatwoot_attachments,
+)
+from channels.telegram_channel.tg_bot_manager import TelegramBotManager
+from channels.telegram_channel.tg_envelope_factory import TelegramEnvelopeFactory
+from channels.telegram_channel.tg_transport import TelegramTransport
 from src import (
     PGMessageQueue,
     Envelope,
     IdempotencyKeyAlreadyProcessedError,
     ConnectorNotFoundError,
 )
-from telegram.plugin_settings import TelegramSettings
-from telegram.tg_attachments import prepare_telegram_to_chatwoot_attachments
-from telegram.tg_bot_manager import TelegramBotManager
-from telegram.tg_envelope_factory import TelegramEnvelopeFactory
-from telegram.tg_transport import TelegramTransport
 
 logger = structlog.get_logger(__name__)
 

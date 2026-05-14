@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from email_channel import (
+from channels.email_channel import (
     EmailChannel,
     EmailImapClient,
     EmailImapWatcher,
@@ -11,7 +11,7 @@ from email_channel import (
     EmailRouting,
     EmailTransport,
 )
-from email_channel.plugin_settings import MailboxConfig
+from channels.email_channel.plugin_settings import MailboxConfig
 from src import ChannelDeliveryResult, Envelope, SenderInfo
 
 

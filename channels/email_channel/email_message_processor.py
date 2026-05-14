@@ -2,9 +2,11 @@ from typing import Any
 
 import structlog
 
-from email_channel.email_attachments import prepare_email_to_chatwoot_attachments
-from email_channel.email_envelope_factory import EmailEnvelopeFactory
-from email_channel.email_imap_client import EmailImapClient
+from channels.email_channel.email_attachments import (
+    prepare_email_to_chatwoot_attachments,
+)
+from channels.email_channel.email_envelope_factory import EmailEnvelopeFactory
+from channels.email_channel.email_imap_client import EmailImapClient
 from src import Envelope, IdempotencyKeyAlreadyProcessedError, PGMessageQueue
 from src.multichannel_gateway.infrastructure.endpoints import handle_channel_payload
 

@@ -2,7 +2,7 @@ import asyncio
 
 import structlog
 
-from email_channel.email_message_processor import EmailMessageProcessor
+from channels.email_channel.email_message_processor import EmailMessageProcessor
 
 logger = structlog.get_logger(__name__)
 
