@@ -2,12 +2,12 @@ from unittest.mock import patch
 
 import pytest
 
-from email_channel import (
+from channels.email_channel import (
     EmailImapClient,
     EmailMessageProcessor,
     EmailRouting,
 )
-from email_channel.plugin_settings import MailboxConfig
+from channels.email_channel.plugin_settings import MailboxConfig
 from src import (
     Envelope,
     IdempotencyKeyAlreadyProcessedError,
@@ -140,7 +140,7 @@ class TestEmailMessageProcessor:
         ]
 
         with patch(
-            "email_channel.email_message_processor.handle_channel_payload"
+            "channels.email_channel.email_message_processor.handle_channel_payload"
         ) as mock_handle:
             await processor.poll_once()
             mock_handle.assert_awaited_once_with(
@@ -182,7 +182,7 @@ class TestEmailMessageProcessor:
         processor._imap_client.fetch_inbound_payloads.return_value = payloads  # type: ignore[attr-defined]
 
         with patch(
-            "email_channel.email_message_processor.handle_channel_payload"
+            "channels.email_channel.email_message_processor.handle_channel_payload"
         ) as mock_handle:
             await processor.poll_once()
             assert mock_handle.await_count == 2
@@ -214,7 +214,9 @@ class TestEmailMessageProcessor:
         processor._mq.is_already_processed.return_value = False  # type: ignore[attr-defined]
         processor._mq.send.side_effect = Exception("test queue error")  # type: ignore[attr-defined]
         envelope = _envelope(mailbox)
-        with patch("email_channel.email_message_processor.logger") as mock_logger:
+        with patch(
+            "channels.email_channel.email_message_processor.logger"
+        ) as mock_logger:
             await processor.publish_channel_message("key-1", envelope)
             mock_logger.error.assert_called_once_with(
                 "Exception occurred: test queue error"
@@ -241,10 +243,12 @@ class TestEmailMessageProcessor:
         processor._imap_client.fetch_inbound_payloads.return_value = [payload]  # type: ignore[attr-defined]
         with (
             patch(
-                "email_channel.email_message_processor.handle_channel_payload",
+                "channels.email_channel.email_message_processor.handle_channel_payload",
                 side_effect=Exception("test handle error"),
             ),
-            patch("email_channel.email_message_processor.logger") as mock_logger,
+            patch(
+                "channels.email_channel.email_message_processor.logger"
+            ) as mock_logger,
         ):
             await processor.poll_once()
             mock_logger.error.assert_called_once_with(

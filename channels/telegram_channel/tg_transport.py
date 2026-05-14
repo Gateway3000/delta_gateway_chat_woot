@@ -9,13 +9,13 @@ from aiogram.exceptions import (
 from aiogram.types import URLInputFile
 from aiohttp import ClientConnectorError, ServerDisconnectedError
 
+from channels.telegram_channel.tg_bot_manager import TelegramBotManager
 from src import ChannelDeliveryResult, Envelope
 from src.multichannel_gateway.core.exceptions import (
     RateLimitError,
     FatalError,
     TransientError,
 )
-from telegram.tg_bot_manager import TelegramBotManager
 
 
 class TelegramTransport:

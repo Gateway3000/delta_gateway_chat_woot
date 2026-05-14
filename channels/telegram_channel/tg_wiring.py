@@ -1,12 +1,12 @@
+from channels.telegram_channel.plugin_settings import TelegramSettings
+from channels.telegram_channel.tg_bot_manager import TelegramBotManager
+from channels.telegram_channel.tg_channel import TelegramChannel
+from channels.telegram_channel.tg_envelope_factory import TelegramEnvelopeFactory
+from channels.telegram_channel.tg_message_processor import TelegramMessageProcessor
+from channels.telegram_channel.tg_routing import TelegramRouting
+from channels.telegram_channel.tg_transport import TelegramTransport
+from channels.telegram_channel.tg_wh_manager import TelegramWebhookManager
 from src import pgmq
-from telegram.plugin_settings import TelegramSettings
-from telegram.tg_bot_manager import TelegramBotManager
-from telegram.tg_channel import TelegramChannel
-from telegram.tg_envelope_factory import TelegramEnvelopeFactory
-from telegram.tg_message_processor import TelegramMessageProcessor
-from telegram.tg_routing import TelegramRouting
-from telegram.tg_transport import TelegramTransport
-from telegram.tg_wh_manager import TelegramWebhookManager
 
 tg_settings = TelegramSettings()
 tg_bot_manager = TelegramBotManager(tg_settings.bots_config)

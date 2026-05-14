@@ -1,4 +1,4 @@
-from telegram.plugin_settings import BotConfig
+from channels.telegram_channel.plugin_settings import BotConfig
 
 
 class TelegramRouting:

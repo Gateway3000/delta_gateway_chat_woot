@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import asyncpg
 import pytest
 
-from email_channel.email_wiring import email_routing, email_settings
+from channels.email_channel.email_wiring import email_routing, email_settings
 from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 from src.multichannel_gateway.infrastructure.endpoints import handle_channel_payload
 

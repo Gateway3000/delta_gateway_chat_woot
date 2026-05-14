@@ -1,12 +1,12 @@
 import pytest
 
-from email_channel import (
+from channels.email_channel import (
     EmailChannel,
     EmailImapWatcher,
     EmailMessageProcessor,
     EmailRouting,
 )
-from email_channel.plugin_settings import EmailSettings, MailboxConfig
+from channels.email_channel.plugin_settings import EmailSettings, MailboxConfig
 from src import ConnectorNotFoundError
 
 

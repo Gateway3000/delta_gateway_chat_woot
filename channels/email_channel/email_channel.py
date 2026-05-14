@@ -1,11 +1,11 @@
 import asyncio
 from typing import Any
 
-from email_channel.email_imap_client import EmailImapClient
-from email_channel.email_imap_watcher import EmailImapWatcher
-from email_channel.email_message_processor import EmailMessageProcessor
-from email_channel.email_routing import EmailRouting
-from email_channel.email_transport import EmailTransport
+from channels.email_channel.email_imap_client import EmailImapClient
+from channels.email_channel.email_imap_watcher import EmailImapWatcher
+from channels.email_channel.email_message_processor import EmailMessageProcessor
+from channels.email_channel.email_routing import EmailRouting
+from channels.email_channel.email_transport import EmailTransport
 from src import ChannelDeliveryResult, Envelope, IChannel
 
 

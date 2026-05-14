@@ -9,11 +9,11 @@ from typing import Any
 
 import structlog
 
-from email_channel.email_attachments import (
+from channels.email_channel.email_attachments import (
     prepare_attachments_data,
 )
-from email_channel.email_routing import EmailRouting
-from email_channel.plugin_settings import MailboxConfig, EmailSettings
+from channels.email_channel.email_routing import EmailRouting
+from channels.email_channel.plugin_settings import MailboxConfig, EmailSettings
 from src import ChannelDeliveryResult, Envelope
 from src.multichannel_gateway.core.exceptions import (
     FatalError,

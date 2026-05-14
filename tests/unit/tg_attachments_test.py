@@ -5,8 +5,8 @@ import pytest
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import GetFile
 
-from telegram.plugin_settings import TelegramSettings
-from telegram.tg_attachments import (
+from channels.telegram_channel.plugin_settings import TelegramSettings
+from channels.telegram_channel.tg_attachments import (
     extract_telegram_attachments,
     prepare_telegram_to_chatwoot_attachments,
 )

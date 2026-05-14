@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from email_channel.email_imap_client import EmailImapClient
-from email_channel.plugin_settings import MailboxConfig
+from channels.email_channel.email_imap_client import EmailImapClient
+from channels.email_channel.plugin_settings import MailboxConfig
 
 
 class TestImapClient:
@@ -86,7 +86,7 @@ class TestImapClient:
         self.mock_conn.uid.return_value = ("OK", [(None, b"raw_email_bytes")])
         with patch.object(self.client, "_get_uidvalidity", return_value="123"):
             with patch(
-                "email_channel.email_imap_client.EmailMimeParser"
+                "channels.email_channel.email_imap_client.EmailMimeParser"
             ) as mock_parser:
                 mock_parsed = MagicMock()
                 mock_parsed.date = None
@@ -186,16 +186,20 @@ class TestImapClient:
             assert result == []
 
     def test_returns_connection_on_success(self, mailbox: MailboxConfig) -> None:
-        with patch("email_channel.email_imap_client.imaplib.IMAP4_SSL") as mock_imap:
+        with patch(
+            "channels.email_channel.email_imap_client.imaplib.IMAP4_SSL"
+        ) as mock_imap:
             mock_conn = MagicMock()
             mock_imap.return_value = mock_conn
             result = EmailImapClient._connect_with_retry(mailbox)
             assert result == mock_conn
 
     def test_returns_none_after_retries(self, mailbox: MailboxConfig) -> None:
-        with patch("email_channel.email_imap_client.imaplib.IMAP4_SSL") as mock_imap:
+        with patch(
+            "channels.email_channel.email_imap_client.imaplib.IMAP4_SSL"
+        ) as mock_imap:
             mock_imap.side_effect = Exception("connection refused")
-            with patch("email_channel.email_imap_client.time.sleep"):
+            with patch("channels.email_channel.email_imap_client.time.sleep"):
                 result = EmailImapClient._connect_with_retry(mailbox)
                 assert result is None
 
@@ -204,7 +208,9 @@ class TestImapClient:
         client.validate_connections()
 
     def test_validate_connections_success(self, imap_client: EmailImapClient) -> None:
-        with patch("email_channel.email_imap_client.imaplib.IMAP4_SSL") as mock_imap:
+        with patch(
+            "channels.email_channel.email_imap_client.imaplib.IMAP4_SSL"
+        ) as mock_imap:
             mock_conn = MagicMock()
             mock_imap.return_value = mock_conn
             imap_client.validate_connections()
@@ -214,7 +220,9 @@ class TestImapClient:
     def test_validate_connections_raises_on_imap_error(
         self, imap_client: EmailImapClient
     ) -> None:
-        with patch("email_channel.email_imap_client.imaplib.IMAP4_SSL") as mock_imap:
+        with patch(
+            "channels.email_channel.email_imap_client.imaplib.IMAP4_SSL"
+        ) as mock_imap:
             mock_conn = MagicMock()
             mock_conn.login.side_effect = imaplib.IMAP4.error("auth failed")
             mock_imap.return_value = mock_conn

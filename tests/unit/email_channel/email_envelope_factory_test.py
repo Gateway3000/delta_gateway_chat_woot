@@ -1,7 +1,7 @@
 import pytest
 
-from email_channel import EmailEnvelopeFactory, EmailRouting
-from email_channel.plugin_settings import MailboxConfig
+from channels.email_channel import EmailEnvelopeFactory, EmailRouting
+from channels.email_channel.plugin_settings import MailboxConfig
 from src.multichannel_gateway.core.interfaces.envelope_factory import IEnvelopeFactory
 
 
