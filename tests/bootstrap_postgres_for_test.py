@@ -17,6 +17,25 @@ MANDATORY_ENV_VARS = (
 load_dotenv(find_dotenv())
 
 
+def start_pgmq_container(
+    postgres_version: str,
+    pgmq_version: str,
+    db_user: str,
+    db_pass: str,
+    db_name: str,
+) -> PostgresContainer:
+    container = PostgresContainer(
+        image=f"ghcr.io/pgmq/pg{postgres_version}-pgmq:{pgmq_version}",
+        username=db_user,
+        password=db_pass,
+        dbname=db_name,
+    )
+    container.start()
+    os.environ["DB_HOST"] = container.get_container_host_ip()
+    os.environ["DB_PORT"] = str(container.get_exposed_port(5432))
+    return container
+
+
 def bootstrap_postgres() -> PostgresContainer | None:
     _assert_test_database_environment()
 
@@ -25,20 +44,13 @@ def bootstrap_postgres() -> PostgresContainer | None:
     if tc_value is not None and tc_value.lower() in ("false", "0"):
         return None
 
-    postgres_version = os.getenv("POSTGRES_VERSION")
-    pgmq_version = os.getenv("PGMQ_VERSION")
-    test_container = PostgresContainer(
-        image=f"ghcr.io/pgmq/pg{postgres_version}-pgmq:{pgmq_version}",
-        username=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASS"),
-        dbname=os.getenv("DB_NAME"),
+    return start_pgmq_container(
+        postgres_version=os.environ["POSTGRES_VERSION"],
+        pgmq_version=os.environ["PGMQ_VERSION"],
+        db_user=os.environ["DB_USER"],
+        db_pass=os.environ["DB_PASS"],
+        db_name=os.environ["DB_NAME"],
     )
-    test_container.start()
-
-    os.environ["DB_HOST"] = test_container.get_container_host_ip()
-    os.environ["DB_PORT"] = str(test_container.get_exposed_port(5432))
-
-    return test_container
 
 
 def _assert_test_database_environment() -> None:
