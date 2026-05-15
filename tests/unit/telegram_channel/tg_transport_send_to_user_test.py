@@ -58,6 +58,24 @@ def _build_attachment_message(text: str) -> dict[str, object]:
     return message
 
 
+def _build_attachment_message_with_type(
+    text: str,
+    file_type: str = "image",
+    data_url: str = "https://example.com/file",
+) -> dict[str, object]:
+    message = _build_message()
+    message["payload"] = {
+        "text": text,
+        "attachments": [
+            {
+                "file_type": file_type,
+                "data_url": data_url,
+            }
+        ],
+    }
+    return message
+
+
 def _build_gateway(transport: TelegramTransport) -> TelegramChannel:
     return TelegramChannel(
         cast(TelegramBotManager, Mock()),
@@ -209,3 +227,171 @@ async def test_send_to_user_skips_whitespace_only_text_and_sends_attachment(
     assert result.external_id == "777"
     mock_send_message.assert_not_awaited()
     mock_send_photo.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_skips_attachment_without_data_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot))
+    sent_message = cast(Message, Mock(message_id=1))
+    mock_send_message = AsyncMock(return_value=sent_message)
+    sent_photo = cast(Message, Mock(message_id=777))
+    mock_send_photo = AsyncMock(return_value=sent_photo)
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_photo", mock_send_photo)
+
+    message = _build_message()
+    message["payload"] = {
+        "text": "hello",
+        "attachments": [
+            {"file_type": "image"},
+            {"file_type": "image", "data_url": "https://example.com/img.jpg"},
+        ],
+    }
+
+    try:
+        result = await transport.send_to_telegram_user(message)
+    finally:
+        await bot.session.close()
+
+    assert result.ok is True
+    assert result.external_id == "1,777"
+    mock_send_message.assert_awaited_once()
+    mock_send_photo.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_sends_video_attachment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot))
+    sent_message = cast(Message, Mock(message_id=1))
+    mock_send_message = AsyncMock(return_value=sent_message)
+    sent_video = cast(Message, Mock(message_id=111))
+    mock_send_video = AsyncMock(return_value=sent_video)
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_video", mock_send_video)
+
+    message = _build_attachment_message_with_type(
+        "text", file_type="video", data_url="https://example.com/video.mp4"
+    )
+
+    try:
+        result = await transport.send_to_telegram_user(message)
+    finally:
+        await bot.session.close()
+
+    assert result.ok is True
+    assert result.external_id == "1,111"
+    mock_send_message.assert_awaited_once()
+    mock_send_video.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_sends_audio_attachment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot))
+    sent_message = cast(Message, Mock(message_id=1))
+    mock_send_message = AsyncMock(return_value=sent_message)
+    sent_audio = cast(Message, Mock(message_id=222))
+    mock_send_audio = AsyncMock(return_value=sent_audio)
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_audio", mock_send_audio)
+
+    message = _build_attachment_message_with_type(
+        "text", file_type="audio", data_url="https://example.com/audio.mp3"
+    )
+
+    try:
+        result = await transport.send_to_telegram_user(message)
+    finally:
+        await bot.session.close()
+
+    assert result.ok is True
+    assert result.external_id == "1,222"
+    mock_send_message.assert_awaited_once()
+    mock_send_audio.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_sends_document_attachment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot))
+    sent_message = cast(Message, Mock(message_id=1))
+    mock_send_message = AsyncMock(return_value=sent_message)
+    sent_doc = cast(Message, Mock(message_id=333))
+    mock_send_document = AsyncMock(return_value=sent_doc)
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_document", mock_send_document)
+
+    message = _build_attachment_message_with_type(
+        "text", file_type="file", data_url="https://example.com/doc.pdf"
+    )
+
+    try:
+        result = await transport.send_to_telegram_user(message)
+    finally:
+        await bot.session.close()
+
+    assert result.ok is True
+    assert result.external_id == "1,333"
+    mock_send_message.assert_awaited_once()
+    mock_send_document.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_raises_fatal_on_no_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot))
+    mock_send_message = AsyncMock()
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+
+    message = _build_message()
+    message["payload"] = {"text": ""}
+
+    try:
+        with pytest.raises(FatalError, match="no text or attachments"):
+            await transport.send_to_telegram_user(message)
+    finally:
+        await bot.session.close()
+
+    mock_send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_send_to_user_raises_rate_limit_on_api_error_with_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bot = Bot("123456:ABCDEF")
+    transport = TelegramTransport(_build_bot_manager(bot))
+
+    api_error = TelegramAPIError(
+        SendMessage(chat_id=123321, text="Test message from Chatwoot!"),
+        "rate limited",
+    )
+    setattr(api_error, "retry_after", 5)
+    mock_send_message = AsyncMock(side_effect=api_error)
+
+    monkeypatch.setattr("aiogram.client.bot.Bot.send_message", mock_send_message)
+
+    try:
+        with pytest.raises(RateLimitError):
+            await transport.send_to_telegram_user(_build_message())
+    finally:
+        await bot.session.close()
+
+    mock_send_message.assert_awaited_once()
