@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from src.multichannel_gateway.core.exceptions import TransientError
-from src.multichannel_gateway.infrastructure.endpoints import _handle_exceptions
+from src.multichannel_gateway.app.services.handlers import _handle_exceptions
 from src.multichannel_gateway.infrastructure.pg_message_queue import PGMessageQueue
 
 

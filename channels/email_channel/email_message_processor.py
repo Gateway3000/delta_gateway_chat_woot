@@ -8,7 +8,7 @@ from channels.email_channel.email_attachments import (
 from channels.email_channel.email_envelope_factory import EmailEnvelopeFactory
 from channels.email_channel.email_imap_client import EmailImapClient
 from src import Envelope, IdempotencyKeyAlreadyProcessedError, PGMessageQueue
-from src.multichannel_gateway.infrastructure.endpoints import handle_channel_payload
+from src.multichannel_gateway.app.services.handlers import handle_channel_payload
 
 logger = structlog.get_logger(__name__)
 
