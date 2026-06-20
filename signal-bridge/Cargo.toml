@@ -1,0 +1,37 @@
+[package]
+name = "signal-bridge"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+description = "Line-oriented bridge over presage: stream Signal messages and send them over stdio or TCP"
+
+[dependencies]
+# presage is pulled from git (pinned). presage-store-sqlite is a second crate
+# in the same repo, so it uses the same git source + rev.
+presage = { git = "https://github.com/whisperfish/presage", rev = "94208274ef7218dfe4af5603a0b9be6e275c0a1a" }
+presage-store-sqlite = { git = "https://github.com/whisperfish/presage", rev = "94208274ef7218dfe4af5603a0b9be6e275c0a1a" }
+
+anyhow = "1.0"
+clap = { version = "4", features = ["derive", "env"] }
+futures = "0.3"
+qr2term = "0.3.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.48", features = [
+    "macros",
+    "rt-multi-thread",
+    "io-std",
+    "io-util",
+    "signal",
+] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# These overrides are required to build the libsignal stack and must live in
+# the root manifest of whatever builds presage — they are NOT inherited from
+# presage's own workspace when presage is consumed as a dependency. Kept in
+# sync with presage's workspace Cargo.toml [patch.crates-io].
+[patch.crates-io]
+curve25519-dalek = { git = 'https://github.com/signalapp/curve25519-dalek', tag = 'signal-curve25519-4.1.3' }
+quickcheck_async = { git = 'https://github.com/nytopop/quickcheck_async', rev = '76b13525ca93e0725e757f841fc6ccab8bae1913' }
+libsqlite3-sys = { version = "0.36.0", git = "https://github.com/whisperfish/rusqlite", rev = '2a42b3354c9194700d08aa070f70a131a470e7dc' }

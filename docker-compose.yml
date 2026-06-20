@@ -22,7 +22,7 @@ services:
   # The linked session is persisted in the signal-data volume.
   signal-bridge:
     build:
-      context: ./signal-service/signal-bridge
+      context: ./signal-bridge
     image: signal-bridge:latest
     restart: unless-stopped
     container_name: signal-bridge
