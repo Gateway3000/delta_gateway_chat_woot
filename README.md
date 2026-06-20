@@ -112,6 +112,11 @@ CHANNELS="Telegram"
 ### Delta Chat Channel
 
 Delta Chat can run in native mode through RPC or keep using the temporary `deltawoot` bridge while you migrate.
+The legacy bridge now lives inside this repository in [`deltawoot/`](./deltawoot) and can be started from the gateway root with:
+
+```bash
+docker compose --profile legacy-deltachat up -d
+```
 
 Example native configuration:
 
@@ -133,6 +138,7 @@ DELTACHAT_RPC_SERVER_PATH=deltachat-rpc-server
 ```
 
 For migration mode, set `ENABLE_NATIVE_DELTACHAT_CHANNEL=false` and add `bridge_url` inside each Delta Chat account config so the channel can keep forwarding to the legacy bridge until you are ready to switch.
+The default `bridge_url` for the bundled relay is `http://deltawoot:5000`.
 
 ## 3. Testing
 

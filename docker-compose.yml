@@ -2,6 +2,7 @@ volumes:
   pgmq:
   signal-data:
   wa1_auth:
+  deltawoot_data:
 
 services:
   app:
@@ -42,6 +43,21 @@ services:
       SIGNAL_SERVERS: production
     volumes:
       - signal-data:/data
+
+  # legacy Delta Chat relay used during migration from deltawoot to the native
+  # DeltaChatChannel. It stays optional so the native-only deployment does not
+  # need Chatwoot/IMAP/SMTP credentials for the old bridge.
+  deltawoot:
+    build:
+      context: ./deltawoot
+    image: deltawoot:latest
+    restart: unless-stopped
+    container_name: deltawoot
+    profiles:
+      - legacy-deltachat
+    env_file: .env
+    volumes:
+      - deltawoot_data:/home/deltawoot/files
 
   db:
     image: "ghcr.io/pgmq/pg${POSTGRES_VERSION}-pgmq:${PGMQ_VERSION}"

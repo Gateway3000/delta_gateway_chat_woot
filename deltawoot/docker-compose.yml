@@ -1,0 +1,37 @@
+services:
+  greenmail:
+    image: greenmail/standalone:2.0.1
+    container_name: greenmail
+    restart: unless-stopped
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp
+        -Dgreenmail.setup.test.imap
+        -Dgreenmail.auth.disabled
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.verbose
+    ports:
+      - "3025:3025"
+      - "3143:3143"
+    networks:
+      default:
+        aliases:
+          - imap.relay.local
+          - smtp.relay.local
+          - relay.local
+
+  deltawoot:
+    build:
+      context: .
+    container_name: deltawoot
+    restart: unless-stopped
+    depends_on:
+      - greenmail
+    env_file: .env
+    ports:
+      - "5001:5000"
+    volumes:
+      - deltawoot_data:/home/deltawoot/files
+
+volumes:
+  deltawoot_data:

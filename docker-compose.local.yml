@@ -16,6 +16,10 @@ services:
     networks:
       - gateway-network
 
+  deltawoot:
+    networks:
+      - gateway-network
+
   wa-sidecar-1:
     networks:
       - gateway-network
