@@ -10,9 +10,11 @@
  * The gateway treats this as a webhook source (reuses /ingest/incoming/...),
  * so the Python side only needs parse + send — no long-lived socket in Python.
  *
- * NOTE ON VERSION: pinned to Baileys v6 (widely documented API). v7 introduced
- * breaking changes (see https://whiskey.so/migrate-latest) — if you bump to v7,
- * re-check makeWASocket import, downloadMediaMessage, and connection events.
+ * VERSION: Baileys v7 (7.0.0-rc13). The APIs used here — makeWASocket default
+ * export, useMultiFileAuthState, fetchLatestBaileysVersion, downloadMediaMessage,
+ * requestPairingCode, and the connection.update / messages.upsert events — are
+ * unchanged from v6, so the upgrade needed no code changes. v7 is required for
+ * the current WhatsApp protocol (v6 fails to connect / decrypt).
  */
 
 const express = require("express");
