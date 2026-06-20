@@ -79,6 +79,10 @@ python main.py
 | **CHATWOOT_BASE_URL**                               | Base URL of your Chatwoot instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **LOG_LEVEL**                                       | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **ANONYMIZE_USERS**                                 | Generates a random username made up of numbers, an adjective, and a noun                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **ENABLE_NATIVE_DELTACHAT_CHANNEL**                | Enables the native Delta Chat RPC channel. When `false`, the Delta Chat adapter can keep using the legacy `deltawoot` bridge through `bridge_url` during migration. |
+| **DELTA_CHAT_ACCOUNTS**                             | JSON array of Delta Chat account configs, one connector per account. Each item can include `connector_id`, `address`, `password`, `display_name`, `avatar_path`, `bridge_url`, `cw_account_id`, and `cw_inbox_id`. |
+| **DELTACHAT_ACCOUNTS_DIR**                          | Base directory for Delta Chat persistent storage. Each connector uses its own storage subdirectory under this path unless `storage_dir` is provided explicitly. |
+| **DELTACHAT_RPC_SERVER_PATH**                       | Path to the `deltachat-rpc-server` executable that the native channel starts when `ENABLE_NATIVE_DELTACHAT_CHANNEL=true`. |
 | **CHANNELS**                                        | Determines which channels to load from available entry points (see documentation below). If not set, all discovered channels are loaded.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ### Configuring CHANNELS
@@ -104,6 +108,31 @@ CHANNELS="Telegram", "Email"
 # WRONG: single value without array
 CHANNELS="Telegram"
 ```
+
+### Delta Chat Channel
+
+Delta Chat can run in native mode through RPC or keep using the temporary `deltawoot` bridge while you migrate.
+
+Example native configuration:
+
+```env
+ENABLE_NATIVE_DELTACHAT_CHANNEL=true
+DELTA_CHAT_ACCOUNTS='[
+  {
+    "connector_id": "delta-client-1",
+    "address": "bot1@example.org",
+    "password": "secret",
+    "display_name": "Support Bot 1",
+    "avatar_path": "/data/bot1/avatar.jpg",
+    "cw_account_id": "1",
+    "cw_inbox_id": "5"
+  }
+]'
+DELTACHAT_ACCOUNTS_DIR=/data/deltachat
+DELTACHAT_RPC_SERVER_PATH=deltachat-rpc-server
+```
+
+For migration mode, set `ENABLE_NATIVE_DELTACHAT_CHANNEL=false` and add `bridge_url` inside each Delta Chat account config so the channel can keep forwarding to the legacy bridge until you are ready to switch.
 
 ## 3. Testing
 

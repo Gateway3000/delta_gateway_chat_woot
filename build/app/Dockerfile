@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --locked --no-install-project --no-dev --extra sentry
 
 FROM dependencies AS app
-COPY ../.. /app
+COPY . /app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --locked --no-dev --extra sentry

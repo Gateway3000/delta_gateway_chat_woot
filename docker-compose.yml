@@ -5,6 +5,9 @@ volumes:
 
 services:
   app:
+    build:
+      context: .
+      dockerfile: build/app/Dockerfile
     image: channel-gateway:latest
     restart: unless-stopped
     container_name: gateway
