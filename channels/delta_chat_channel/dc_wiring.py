@@ -7,7 +7,7 @@ from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
 from src import pgmq
-from src.multichannel_gateway.app.wiring import identity_store
+from src.multichannel_gateway.app.wiring import cw_session_manager, identity_store
 
 delta_chat_settings = DeltaChatSettings()
 delta_chat_accounts = [
@@ -30,6 +30,7 @@ delta_chat_transport = DeltaChatTransport(
     delta_chat_routing,
     delta_chat_client,
     identity_store,
+    cw_session_manager,
 )
 delta_chat_processor = DeltaChatMessageProcessor(
     delta_chat_routing,

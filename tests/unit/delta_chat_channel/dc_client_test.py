@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+import sys
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -142,3 +144,133 @@ def test_failure_of_one_account_does_not_stop_another() -> None:
 
     assert received
     assert received[0]["sender_address"] == "user@example.org"
+
+
+class _PersistentAccount:
+    def __init__(self, storage_dir: str, account_id: int, address: str | None) -> None:
+        self.storage_dir = storage_dir
+        self.id = account_id
+        self._configured = address is not None
+        self._config: dict[str, str | None] = {"addr": address}
+
+    def get_config(self, key: str) -> str | None:
+        return self._config.get(key)
+
+    def is_configured(self) -> bool:
+        return self._configured
+
+    def configure(self, email: str, password: str) -> None:
+        self._config["addr"] = email
+        self._config["password"] = password
+        self._configured = True
+        self._persist()
+
+    def set_config(self, key: str, value: str) -> None:
+        self._config[key] = value
+        self._persist()
+
+    def set_avatar(self, avatar_path: str) -> None:
+        self._config["avatar_path"] = avatar_path
+        self._persist()
+
+    def _persist(self) -> None:
+        return None
+
+
+class _PersistentDeltaChat:
+    def __init__(self, rpc: object) -> None:
+        self._storage_dir = getattr(rpc, "accounts_dir")
+        self._accounts_file = f"{self._storage_dir}/accounts.json"
+        self._accounts: list[_PersistentAccount] = []
+        try:
+            with open(self._accounts_file, "r", encoding="utf-8") as file_handle:
+                data = json.load(file_handle)
+        except FileNotFoundError:
+            data = []
+        for item in data:
+            self._accounts.append(
+                _PersistentAccount(self._storage_dir, int(item["id"]), item["addr"])
+            )
+
+    def _save(self) -> None:
+        payload = [
+            {"id": account.id, "addr": account.get_config("addr")}
+            for account in self._accounts
+        ]
+        with open(self._accounts_file, "w", encoding="utf-8") as file_handle:
+            json.dump(payload, file_handle)
+
+    def get_all_accounts(self) -> list[_PersistentAccount]:
+        return self._accounts
+
+    def add_account(self) -> _PersistentAccount:
+        account = _PersistentAccount(
+            self._storage_dir, len(self._accounts) + 1, None
+        )
+        account._persist = self._save  # type: ignore[method-assign]
+        self._accounts.append(account)
+        self._save()
+        return account
+
+    def start_io(self) -> None:
+        return None
+
+    def stop_io(self) -> None:
+        return None
+
+
+class _PersistentRpc:
+    def __init__(self, *, accounts_dir: str, rpc_server_path: str) -> None:
+        self.accounts_dir = accounts_dir
+        self.rpc_server_path = rpc_server_path
+
+    def start(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+
+def test_connector_mapping_survives_restart(monkeypatch, tmp_path) -> None:
+    fake_module = SimpleNamespace(Rpc=_PersistentRpc, DeltaChat=_PersistentDeltaChat)
+    monkeypatch.setitem(sys.modules, "deltachat_rpc_client", fake_module)
+
+    account_config_1 = DeltaChatAccountConfig(
+        connector_id="delta-client-1",
+        address="bot1@example.org",
+        password="secret",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+    account_config_2 = DeltaChatAccountConfig(
+        connector_id="delta-client-2",
+        address="bot2@example.org",
+        password="secret",
+        cw_account_id="1",
+        cw_inbox_id="6",
+    )
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[account_config_1, account_config_2],
+        deltachat_accounts_dir=str(tmp_path / "deltachat"),
+        enable_native_deltachat_channel=True,
+    )
+    routing = DeltaChatRouting(settings.delta_chat_accounts)
+
+    first_client = DeltaChatClient(settings, routing)
+    first_client.start()
+    first_account_id = first_client.get_runtime_account_by_connector_id(
+        "delta-client-1"
+    ).account_id
+    second_account_id = first_client.get_runtime_account_by_connector_id(
+        "delta-client-2"
+    ).account_id
+    first_client.stop()
+
+    second_client = DeltaChatClient(settings, routing)
+    second_client.start()
+
+    assert second_client.get_runtime_account_by_connector_id("delta-client-1").account_id == first_account_id
+    assert second_client.get_runtime_account_by_connector_id("delta-client-2").account_id == second_account_id
+    assert second_client.get_runtime_account_by_account_id(first_account_id).connector_id == "delta-client-1"
+    assert second_client.get_runtime_account_by_account_id(second_account_id).connector_id == "delta-client-2"
+    second_client.stop()

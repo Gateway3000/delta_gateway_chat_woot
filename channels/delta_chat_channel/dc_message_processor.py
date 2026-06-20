@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import datetime
 from typing import Any
 
+from channels.delta_chat_channel.dc_attachments import (
+    prepare_delta_chat_to_chatwoot_attachments,
+)
 from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
 from src import (
@@ -56,7 +57,10 @@ class DeltaChatMessageProcessor:
         message_id = self._required_str(raw_data, "message_id")
         chat_id = self._required_str(raw_data, "chat_id")
         text = str(raw_data.get("text") or "")
-        attachments = list(raw_data.get("attachments") or [])
+        attachments = prepare_delta_chat_to_chatwoot_attachments(
+            list(raw_data.get("attachments") or []),
+            max_mb=self._transport.channel_upload_max_mb,
+        )
 
         idempotency_key = IEnvelopeFactory.build_idempotency_key(
             direction="delta_chat->chatwoot",
@@ -88,6 +92,7 @@ class DeltaChatMessageProcessor:
                 "chat_id": chat_id,
                 "account_id": account_id,
                 "is_group": bool(raw_data.get("is_group")),
+                "view_type": raw_data.get("view_type") or raw_data.get("viewtype"),
             },
             ts=float(datetime.now().timestamp()),
         )
@@ -154,24 +159,3 @@ class DeltaChatMessageProcessor:
         if value is None or value == "":
             raise ValueError(f"Missing required key: {key}")
         return str(value)
-
-    @staticmethod
-    def _resolve_message_id(
-        raw_data: dict[str, Any],
-        conversation_id: str,
-        text: str,
-        attachments: list[dict[str, Any]],
-    ) -> str:
-        if message_id := raw_data.get("message_id"):
-            return str(message_id)
-        digest_input = json.dumps(
-            {
-                "conversation_id": conversation_id,
-                "text": text,
-                "attachments": attachments,
-            },
-            sort_keys=True,
-            ensure_ascii=False,
-        )
-        return hashlib.sha1(digest_input.encode("utf-8")).hexdigest()
-

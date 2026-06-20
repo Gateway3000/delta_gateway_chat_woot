@@ -10,5 +10,6 @@ class DeltaChatSettings(Settings):
     enable_native_deltachat_channel: bool = False
     deltachat_rpc_server_path: str = "deltachat-rpc-server"
     deltachat_accounts_dir: str = "/data/deltachat"
-
+    channel_upload_max_mb: int = 20
+    chatwoot_upload_max_mb: int = 40
 

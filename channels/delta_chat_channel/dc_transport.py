@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import aiohttp
 
+from channels.delta_chat_channel.dc_attachments import (
+    is_over_size_limit,
+    resolve_delta_chat_viewtype,
+)
 from channels.delta_chat_channel.dc_client import DeltaChatClient
 from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
@@ -20,11 +27,13 @@ class DeltaChatTransport:
         routing: DeltaChatRouting,
         client: DeltaChatClient,
         identity_store: IdentityStore,
+        cw_session_manager: Any | None = None,
     ) -> None:
         self._settings = settings
         self._routing = routing
         self._client = client
         self._identity_store = identity_store
+        self._cw_session_manager = cw_session_manager
         self._legacy_bridge_enabled = not settings.enable_native_deltachat_channel
         if settings.enable_native_deltachat_channel:
             bridge_configs = [
@@ -37,6 +46,14 @@ class DeltaChatTransport:
                     "bridge_url is not allowed when ENABLE_NATIVE_DELTACHAT_CHANNEL=true "
                     f"(connectors: {', '.join(bridge_configs)})"
                 )
+
+    @property
+    def channel_upload_max_mb(self) -> int:
+        return self._settings.channel_upload_max_mb
+
+    @property
+    def chatwoot_upload_max_mb(self) -> int:
+        return self._settings.chatwoot_upload_max_mb
 
     async def send_to_delta_chat_user(
         self, message: dict[str, Any]
@@ -68,22 +85,101 @@ class DeltaChatTransport:
 
         try:
             account = self._client.get_account(route["connector_id"])
+            attachments = list(envelope.payload.get("attachments") or [])
+
+            async def _download_attachment(
+                attachment: dict[str, Any],
+            ) -> tuple[str, str, Any | None]:
+                url = attachment.get("data_url") or attachment.get("url")
+                if not url:
+                    raise FatalError("Missing attachment URL")
+                if self._cw_session_manager is None:
+                    raise FatalError("Chatwoot HTTP session is not available")
+
+                size = attachment.get("size")
+                if is_over_size_limit(
+                    int(size) if size is not None else None,
+                    self._settings.chatwoot_upload_max_mb,
+                ):
+                    raise FatalError("Attachment exceeds configured size limit")
+
+                filename = str(
+                    attachment.get("filename")
+                    or attachment.get("file_name")
+                    or "attachment"
+                )
+                viewtype = resolve_delta_chat_viewtype(attachment)
+                suffix = Path(filename).suffix or ""
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                    temp_path = tmp_file.name
+
+                session = self._cw_session_manager.session
+                try:
+                    async with session.get(url) as response:
+                        if response.status >= 400:
+                            response_text = await response.text()
+                            raise FatalError(
+                                f"Chatwoot attachment download failed {response.status}: {response_text[:200]}"
+                            )
+                        downloaded = 0
+                        with open(temp_path, "wb") as file_handle:
+                            async for chunk in response.content.iter_chunked(64 * 1024):
+                                downloaded += len(chunk)
+                                if is_over_size_limit(
+                                    downloaded, self._settings.chatwoot_upload_max_mb
+                                ):
+                                    raise FatalError(
+                                        "Attachment exceeds configured size limit"
+                                    )
+                                file_handle.write(chunk)
+                except Exception:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                    raise
+
+                return temp_path, filename, viewtype
+
+            prepared_attachments: list[tuple[str, str, Any | None]] = []
+            for attachment in attachments:
+                prepared_attachments.append(await _download_attachment(attachment))
 
             def _deliver() -> None:
                 contact = account.create_contact(external_address, envelope.sender.name)
                 chat = contact.create_chat()
+                if prepared_attachments:
+                    text_to_send = payload_text or None
+                    for index, (temp_path, filename, viewtype) in enumerate(
+                        prepared_attachments
+                    ):
+                        if text_to_send is not None and index == 0:
+                            chat.send_message(
+                                text=text_to_send,
+                                file=temp_path,
+                                filename=filename,
+                                viewtype=viewtype,
+                            )
+                        else:
+                            chat.send_message(
+                                file=temp_path,
+                                filename=filename,
+                                viewtype=viewtype,
+                            )
+                    return
                 if payload_text:
                     chat.send_text(payload_text)
-                for attachment in attachments:
-                    file_path = attachment.get("path") or attachment.get("file_path")
-                    if file_path:
-                        chat.send_file(str(file_path))
 
-            await asyncio.to_thread(_deliver)
+            try:
+                await asyncio.to_thread(_deliver)
+            finally:
+                for temp_path, _, _ in prepared_attachments:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
             return ChannelDeliveryResult(
                 ok=True,
                 external_id=external_address,
             )
+        except FatalError:
+            raise
         except ValueError as exc:
             raise FatalError(str(exc)) from exc
         except Exception as exc:

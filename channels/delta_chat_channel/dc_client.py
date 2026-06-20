@@ -4,6 +4,7 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
+from channels.delta_chat_channel.dc_attachments import extract_delta_chat_attachments
 from channels.delta_chat_channel.dc_models import (
     DeltaChatAccountConfig,
     DeltaChatRuntimeAccount,
@@ -208,15 +209,7 @@ class DeltaChatClient:
                 if chat_id is not None:
                     chat_snapshot = account.get_chat_by_id(int(chat_id)).get_basic_snapshot()
 
-                file_path = snapshot.get("file")
-                attachments: list[dict[str, Any]] = []
-                if file_path:
-                    attachments.append(
-                        {
-                            "path": file_path,
-                            "view_type": snapshot.get("view_type"),
-                        }
-                    )
+                attachments = extract_delta_chat_attachments(snapshot)
 
                 payload = {
                     "account_id": runtime_account.account_id,

@@ -37,12 +37,18 @@ class _FakeChat:
 
 
 class _FakeMessage:
+    def __init__(self, *, file_path: str | None = None) -> None:
+        self._file_path = file_path
+
     def get_snapshot(self) -> dict[str, object]:
         return {
             "id": "msg-1",
             "chat_id": 1,
             "text": "Hello from Delta Chat",
-            "file": None,
+            "file": self._file_path,
+            "filename": "photo.jpg" if self._file_path else None,
+            "mime_type": "image/jpeg" if self._file_path else None,
+            "view_type": "image" if self._file_path else None,
             "is_info": False,
         }
 
@@ -192,3 +198,76 @@ async def test_text_only_round_trip_with_mocked_rpc_boundary(monkeypatch) -> Non
         "delta_chat", "user@example.org"
     )
     mq.mark_as_processed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_attachment_round_trip_with_mocked_rpc_boundary(monkeypatch, tmp_path) -> None:
+    stop_release = threading.Event()
+    attachment_path = tmp_path / "photo.jpg"
+    attachment_path.write_bytes(b"photo-bytes")
+
+    class _AttachmentAccount(_FakeAccount):
+        def get_message_by_id(self, _msg_id: int) -> _FakeMessage:
+            return _FakeMessage(file_path=str(attachment_path))
+
+    fake_account = _AttachmentAccount(stop_release)
+    fake_module = types.SimpleNamespace(
+        Rpc=_FakeRpc,
+        DeltaChat=lambda rpc: _FakeDeltaChat(rpc, fake_account),
+    )
+    monkeypatch.setitem(sys.modules, "deltachat_rpc_client", fake_module)
+
+    account_config = DeltaChatAccountConfig(
+        connector_id="delta-client-1",
+        address="bot1@example.org",
+        password="secret",
+        display_name="Support Bot 1",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[account_config],
+        deltachat_accounts_dir="/tmp/deltachat",
+        enable_native_deltachat_channel=True,
+    )
+    routing = DeltaChatRouting(settings.delta_chat_accounts)
+    client = DeltaChatClient(settings, routing)
+
+    identity_store = MagicMock()
+    identity_store.get_or_create_actor_id = AsyncMock(return_value="delta_chat_actor_1")
+    identity_store.resolve_external_id = AsyncMock(return_value="user@example.org")
+
+    mq = AsyncMock()
+    mq.is_already_processed = AsyncMock(return_value=False)
+    mq.mark_as_processed = AsyncMock()
+    queue_event = asyncio.Event()
+
+    async def _send_side_effect(queue_name: str, payload: dict[str, object]) -> None:
+        assert queue_name == "to_cw"
+        queue_event.set()
+
+    mq.send = AsyncMock(side_effect=_send_side_effect)
+
+    transport = DeltaChatTransport(settings, routing, client, identity_store)
+    processor = DeltaChatMessageProcessor(
+        routing,
+        transport,
+        identity_store,
+        mq,
+        "to_cw",
+        "from_cw",
+    )
+    channel = DeltaChatChannel(routing, client, transport, processor)
+
+    await channel.on_startup()
+    await asyncio.wait_for(queue_event.wait(), timeout=5.0)
+
+    mq.send.assert_awaited_once()
+    queue_name, payload = mq.send.await_args.args
+    assert queue_name == "to_cw"
+    assert payload["payload"]["text"] == "Hello from Delta Chat"
+    assert payload["payload"]["attachments"][0]["filename"] == "photo.jpg"
+    assert payload["payload"]["attachments"][0]["file_type"] == "image"
+
+    stop_release.set()
+    await channel.on_shutdown()

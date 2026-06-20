@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,6 +14,7 @@ from channels.delta_chat_channel.dc_models import DeltaChatAccountConfig
 from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
+from src import IdempotencyKeyAlreadyProcessedError
 
 
 @pytest.mark.asyncio
@@ -75,7 +77,9 @@ async def test_build_channel_message_produces_expected_envelope(
 
 
 @pytest.mark.asyncio
-async def test_same_numeric_chat_id_uses_connector_id_for_routing(identity_store) -> None:
+async def test_same_numeric_chat_id_uses_connector_id_for_routing(
+    identity_store, tmp_path: Path
+) -> None:
     first_account = DeltaChatAccountConfig(
         connector_id="delta-client-1",
         address="bot1@example.org",
@@ -108,6 +112,9 @@ async def test_same_numeric_chat_id_uses_connector_id_for_routing(identity_store
         "from_cw",
     )
 
+    attachment_path = tmp_path / "photo.jpg"
+    attachment_path.write_bytes(b"photo-bytes")
+
     raw_data = {
         "account_id": 22,
         "connector_id": "delta-client-2",
@@ -117,7 +124,15 @@ async def test_same_numeric_chat_id_uses_connector_id_for_routing(identity_store
         "sender_address": "user@example.org",
         "sender_name": "Delta User",
         "text": "Hello from Delta Chat",
-        "attachments": [],
+        "attachments": [
+            {
+                "path": str(attachment_path),
+                "filename": "photo.jpg",
+                "mime_type": "image/jpeg",
+                "view_type": "image",
+                "size": attachment_path.stat().st_size,
+            }
+        ],
         "is_group": False,
         "is_info": False,
     }
@@ -127,6 +142,7 @@ async def test_same_numeric_chat_id_uses_connector_id_for_routing(identity_store
     assert envelope.connector_id == "delta-client-2"
     assert envelope.cw_inbox_id == "6"
     assert envelope.payload["chat_id"] == "42"
+    assert envelope.payload["attachments"][0].filename == "photo.jpg"
 
 
 @pytest.mark.asyncio
@@ -184,3 +200,69 @@ async def test_publish_channel_message_enqueues_to_incoming_queue(
     assert payload["channel"] == "delta_chat"
     assert payload["payload"]["text"] == "Hello from Delta Chat"
     mq.mark_as_processed.assert_awaited_once_with(idempotency_key)
+
+
+@pytest.mark.asyncio
+async def test_duplicate_delta_chat_message_does_not_enqueue_attachments(
+    routing, identity_store, tmp_path: Path
+) -> None:
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[
+            DeltaChatAccountConfig(
+                connector_id="delta-client-1",
+                address="bot1@example.org",
+                password="secret",
+                cw_account_id="1",
+                cw_inbox_id="5",
+            )
+        ],
+        deltachat_accounts_dir="/tmp/deltachat",
+        enable_native_deltachat_channel=True,
+    )
+    client = MagicMock()
+    transport = DeltaChatTransport(settings, routing, client, identity_store)
+    mq = AsyncMock()
+    mq.is_already_processed = AsyncMock(return_value=True)
+    mq.send = AsyncMock()
+    mq.mark_as_processed = AsyncMock()
+    processor = DeltaChatMessageProcessor(
+        routing,
+        transport,
+        identity_store,
+        mq,
+        "to_cw",
+        "from_cw",
+    )
+
+    attachment_path = tmp_path / "attachment.jpg"
+    attachment_path.write_bytes(b"image-bytes")
+
+    raw_data = {
+        "account_id": 7,
+        "connector_id": "delta-client-1",
+        "message_id": "msg-duplicate",
+        "chat_id": 42,
+        "sender_id": "sender-1",
+        "sender_address": "user@example.org",
+        "sender_name": "Delta User",
+        "text": "Hello from Delta Chat",
+        "attachments": [
+            {
+                "path": str(attachment_path),
+                "filename": "attachment.jpg",
+                "mime_type": "image/jpeg",
+                "file_type": "image",
+                "size": 1,
+            }
+        ],
+        "is_group": False,
+        "is_info": False,
+    }
+
+    idempotency_key, envelope = await processor.build_channel_message(raw_data)
+
+    with pytest.raises(IdempotencyKeyAlreadyProcessedError):
+        await processor.publish_channel_message(idempotency_key, envelope, raw_data)
+
+    mq.send.assert_not_awaited()
+    mq.mark_as_processed.assert_not_awaited()

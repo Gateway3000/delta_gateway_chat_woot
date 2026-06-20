@@ -2,6 +2,7 @@
 
 # mypy: disable-error-code=no-untyped-def
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -9,7 +10,51 @@ import pytest
 from channels.delta_chat_channel.dc_models import DeltaChatAccountConfig
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
-from src import ChannelDeliveryResult, ConnectorNotFoundError, Envelope, SenderInfo
+from src import (
+    ChannelDeliveryResult,
+    ConnectorNotFoundError,
+    Envelope,
+    FatalError,
+    SenderInfo,
+    TransientError,
+)
+
+
+class _FakeStreamContent:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def iter_chunked(self, _chunk_size: int):
+        for chunk in self._chunks:
+            yield chunk
+
+
+class _FakeResponse:
+    def __init__(self, *, status: int = 200, chunks: list[bytes] | None = None) -> None:
+        self.status = status
+        self.content = _FakeStreamContent(chunks or [b"attachment-bytes"])
+
+    async def __aenter__(self) -> "_FakeResponse":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    async def text(self) -> str:
+        return "download-error"
+
+
+class _FakeSession:
+    def __init__(self, response: _FakeResponse) -> None:
+        self._response = response
+
+    def get(self, _url: str) -> _FakeResponse:
+        return self._response
+
+
+class _FakeSessionManager:
+    def __init__(self, response: _FakeResponse) -> None:
+        self.session = _FakeSession(response)
 
 
 class TestDeltaChatTransport:
@@ -37,7 +82,11 @@ class TestDeltaChatTransport:
             enable_native_deltachat_channel=True,
         )
         client = MagicMock()
-        transport = DeltaChatTransport(settings, routing, client, identity_store)
+        cw_session_manager = MagicMock()
+        cw_session_manager.session.get = MagicMock()
+        transport = DeltaChatTransport(
+            settings, routing, client, identity_store, cw_session_manager
+        )
 
         message = Envelope(
             idem_key="key",
@@ -48,13 +97,18 @@ class TestDeltaChatTransport:
             cw_account_id=native_account_config.cw_account_id,
             cw_inbox_id=native_account_config.cw_inbox_id,
             message_id="msg-1",
-            sender=SenderInfo(external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"),
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
             payload={"text": "hello", "attachments": []},
             ts=1.0,
         )
 
         with pytest.raises(ConnectorNotFoundError):
             await transport.send_to_delta_chat_user(message.model_dump(mode="json"))
+
+        client.get_account.assert_not_called()
+        cw_session_manager.session.get.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_send_to_user_uses_native_rpc(
@@ -85,7 +139,9 @@ class TestDeltaChatTransport:
             cw_account_id=native_account_config.cw_account_id,
             cw_inbox_id=native_account_config.cw_inbox_id,
             message_id="msg-1",
-            sender=SenderInfo(external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"),
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
             payload={"text": "hello", "attachments": []},
             ts=1.0,
         )
@@ -121,7 +177,9 @@ class TestDeltaChatTransport:
             cw_account_id=account_config.cw_account_id,
             cw_inbox_id=account_config.cw_inbox_id,
             message_id="msg-1",
-            sender=SenderInfo(external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"),
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
             payload={"text": "hello", "attachments": []},
             ts=1.0,
         )
@@ -130,3 +188,182 @@ class TestDeltaChatTransport:
 
         assert result.ok is True
         transport._send_via_bridge.assert_awaited_once()
+        client.get_account.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_outgoing_attachment_downloads_and_cleans_up_temp_file(
+        self,
+        routing,
+        account_config: DeltaChatAccountConfig,
+        identity_store,
+        tmp_path: Path,
+    ) -> None:
+        native_account_config = account_config.model_copy(update={"bridge_url": None})
+        settings = DeltaChatSettings(
+            delta_chat_accounts=[native_account_config],
+            deltachat_accounts_dir=str(tmp_path / "deltachat"),
+            enable_native_deltachat_channel=True,
+        )
+        cw_session_manager = _FakeSessionManager(
+            _FakeResponse(status=200, chunks=[b"hello", b"world"])
+        )
+        client = MagicMock()
+        account = MagicMock()
+        contact = MagicMock()
+        chat = MagicMock()
+        client.get_account.return_value = account
+        account.create_contact.return_value = contact
+        contact.create_chat.return_value = chat
+        transport = DeltaChatTransport(
+            settings, routing, client, identity_store, cw_session_manager
+        )
+
+        message = Envelope(
+            idem_key="key",
+            channel="delta_chat",
+            from_="chatwoot",
+            to="delta_chat",
+            connector_id=account_config.connector_id,
+            cw_account_id=native_account_config.cw_account_id,
+            cw_inbox_id=native_account_config.cw_inbox_id,
+            message_id="msg-1",
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
+            payload={
+                "text": "hello",
+                "attachments": [
+                    {
+                        "data_url": "https://chatwoot.example.org/attachment",
+                        "filename": "photo.jpg",
+                        "mime_type": "image/jpeg",
+                        "file_type": "image",
+                        "size": 10,
+                        "view_type": "image",
+                    }
+                ],
+            },
+            ts=1.0,
+        )
+
+        result = await transport.send_to_delta_chat_user(message.model_dump(mode="json"))
+
+        assert result.ok is True
+        chat.send_message.assert_called_once()
+        sent_kwargs = chat.send_message.call_args.kwargs
+        temp_path = Path(sent_kwargs["file"])
+        assert sent_kwargs["text"] == "hello"
+        assert sent_kwargs["filename"] == "photo.jpg"
+        assert not temp_path.exists()
+        client.get_account.assert_called_once_with(account_config.connector_id)
+
+    @pytest.mark.asyncio
+    async def test_outgoing_attachment_temp_file_is_removed_on_exception(
+        self,
+        routing,
+        account_config: DeltaChatAccountConfig,
+        identity_store,
+        tmp_path: Path,
+    ) -> None:
+        native_account_config = account_config.model_copy(update={"bridge_url": None})
+        settings = DeltaChatSettings(
+            delta_chat_accounts=[native_account_config],
+            deltachat_accounts_dir=str(tmp_path / "deltachat"),
+            enable_native_deltachat_channel=True,
+        )
+        cw_session_manager = _FakeSessionManager(_FakeResponse(status=200, chunks=[b"hello"]))
+        client = MagicMock()
+        account = MagicMock()
+        contact = MagicMock()
+        chat = MagicMock()
+        chat.send_message.side_effect = RuntimeError("send failed")
+        client.get_account.return_value = account
+        account.create_contact.return_value = contact
+        contact.create_chat.return_value = chat
+        transport = DeltaChatTransport(
+            settings, routing, client, identity_store, cw_session_manager
+        )
+
+        message = Envelope(
+            idem_key="key",
+            channel="delta_chat",
+            from_="chatwoot",
+            to="delta_chat",
+            connector_id=account_config.connector_id,
+            cw_account_id=native_account_config.cw_account_id,
+            cw_inbox_id=native_account_config.cw_inbox_id,
+            message_id="msg-1",
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
+            payload={
+                "attachments": [
+                    {
+                        "data_url": "https://chatwoot.example.org/attachment",
+                        "filename": "photo.jpg",
+                        "mime_type": "image/jpeg",
+                        "file_type": "image",
+                        "size": 10,
+                        "view_type": "image",
+                    }
+                ],
+            },
+            ts=1.0,
+        )
+
+        with pytest.raises(TransientError):
+            await transport.send_to_delta_chat_user(message.model_dump(mode="json"))
+
+        temp_path = Path(chat.send_message.call_args.kwargs["file"])
+        assert not temp_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_outgoing_attachment_size_limit_returns_controlled_error(
+        self,
+        routing,
+        account_config: DeltaChatAccountConfig,
+        identity_store,
+        tmp_path: Path,
+    ) -> None:
+        native_account_config = account_config.model_copy(update={"bridge_url": None})
+        settings = DeltaChatSettings(
+            delta_chat_accounts=[native_account_config],
+            deltachat_accounts_dir=str(tmp_path / "deltachat"),
+            enable_native_deltachat_channel=True,
+            chatwoot_upload_max_mb=0,
+        )
+        cw_session_manager = _FakeSessionManager(_FakeResponse())
+        client = MagicMock()
+        transport = DeltaChatTransport(
+            settings, routing, client, identity_store, cw_session_manager
+        )
+
+        message = Envelope(
+            idem_key="key",
+            channel="delta_chat",
+            from_="chatwoot",
+            to="delta_chat",
+            connector_id=account_config.connector_id,
+            cw_account_id=native_account_config.cw_account_id,
+            cw_inbox_id=native_account_config.cw_inbox_id,
+            message_id="msg-1",
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
+            payload={
+                "attachments": [
+                    {
+                        "data_url": "https://chatwoot.example.org/attachment",
+                        "filename": "photo.jpg",
+                        "mime_type": "image/jpeg",
+                        "file_type": "image",
+                        "size": 1,
+                        "view_type": "image",
+                    }
+                ],
+            },
+            ts=1.0,
+        )
+
+        with pytest.raises(FatalError, match="Attachment exceeds configured size limit"):
+            await transport.send_to_delta_chat_user(message.model_dump(mode="json"))
