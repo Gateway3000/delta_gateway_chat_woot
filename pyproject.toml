@@ -37,6 +37,7 @@ telegram = "channels.telegram_channel.tg_wiring:telegram_channel"
 email = "channels.email_channel.email_wiring:email_channel"
 imessage = "channels.imessage_channel:imessage_channel"
 signal = "channels.signal_channel:signal_channel"
+whatsapp = "channels.whatsapp_channel.wa_wiring:whatsapp_channel"
 
 
 [project.optional-dependencies]

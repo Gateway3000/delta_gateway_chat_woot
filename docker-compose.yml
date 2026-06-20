@@ -1,6 +1,7 @@
 volumes:
   pgmq:
   signal-data:
+  wa1_auth:
 
 services:
   app:
@@ -55,3 +56,23 @@ services:
       timeout: 3s
       start_period: 10s
       retries: 3
+
+  # ---------------- WhatsApp sidecar(s) ----------------
+  wa-sidecar-1:
+    build: ./sidecar
+    image: wa-baileys-sidecar:latest
+    container_name: wa-sidecar-1
+    restart: unless-stopped
+    environment:
+      CONNECTOR_ID: wa1
+      PORT: "3000"
+      SELF_URL: http://wa-sidecar-1:3000
+      GATEWAY_INGEST_URL: http://gateway:8000/ingest/incoming/whatsapp/wa1/webhook
+      SIDECAR_TOKEN: ${WA_SIDECAR_TOKEN}
+      INGEST_TOKEN: ${WA_INGEST_TOKEN}
+      LOG_LEVEL: info
+      # Set WA1_PAIR_NUMBER in .env (digits + country code, no '+') to log in
+      # via pairing code instead of QR. Leave empty to use QR.
+      PAIR_NUMBER: ${WA1_PAIR_NUMBER:-}
+    volumes:
+      - wa1_auth:/data/auth

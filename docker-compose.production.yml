@@ -16,3 +16,7 @@ services:
     container_name: db-gateway
     networks:
       gateway:
+
+  wa-sidecar-1:
+    networks:
+      gateway:
