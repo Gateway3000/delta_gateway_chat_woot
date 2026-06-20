@@ -11,6 +11,7 @@ services:
     depends_on:
       - db
       - signal-bridge
+      - wa-sidecar-1
     env_file: .env
 
   # signal-bridge fronts the Signal account: a small presage-based daemon that
