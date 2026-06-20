@@ -25,6 +25,18 @@ class DeltaChatTransport:
         self._routing = routing
         self._client = client
         self._identity_store = identity_store
+        self._legacy_bridge_enabled = not settings.enable_native_deltachat_channel
+        if settings.enable_native_deltachat_channel:
+            bridge_configs = [
+                cfg.connector_id
+                for cfg in settings.delta_chat_accounts
+                if cfg.bridge_url
+            ]
+            if bridge_configs:
+                raise ValueError(
+                    "bridge_url is not allowed when ENABLE_NATIVE_DELTACHAT_CHANNEL=true "
+                    f"(connectors: {', '.join(bridge_configs)})"
+                )
 
     async def send_to_delta_chat_user(
         self, message: dict[str, Any]
@@ -41,7 +53,7 @@ class DeltaChatTransport:
         attachments = list(envelope.payload.get("attachments") or [])
         bridge_url = str(route.get("bridge_url") or "").rstrip("/")
 
-        if not self._settings.enable_native_deltachat_channel:
+        if self._legacy_bridge_enabled:
             if not bridge_url:
                 raise FatalError("Delta Chat bridge is disabled and no bridge_url is configured")
             return await self._send_via_bridge(

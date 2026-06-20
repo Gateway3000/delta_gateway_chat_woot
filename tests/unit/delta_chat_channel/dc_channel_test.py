@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -70,13 +70,59 @@ class TestDeltaChatChannel:
         processor.publish_chatwoot_message.assert_awaited_once_with(raw_data, account_config.cw_account_id)
 
     @pytest.mark.asyncio
-    async def test_on_startup_and_shutdown(self, channel: DeltaChatChannel, client) -> None:
+    async def test_on_startup_and_shutdown_are_noops_when_native_disabled(self, channel: DeltaChatChannel, client) -> None:
         client.start = AsyncMock()
         client.stop = AsyncMock()
 
         await channel.on_startup()
         await channel.on_shutdown()
 
-        client.start.assert_awaited_once()
-        client.stop.assert_awaited_once()
+        client.start.assert_not_called()
+        client.stop.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_on_startup_registers_handler_and_starts_rpc_when_native_enabled(
+        self, processor, account_config
+    ) -> None:
+        from channels.delta_chat_channel.dc_client import DeltaChatClient
+        from channels.delta_chat_channel.dc_settings import DeltaChatSettings
+        from channels.delta_chat_channel.dc_channel import DeltaChatChannel
+        from channels.delta_chat_channel.dc_models import DeltaChatAccountConfig
+        from channels.delta_chat_channel.dc_routing import DeltaChatRouting
+
+        settings = DeltaChatSettings(
+            delta_chat_accounts=[
+                DeltaChatAccountConfig(
+                    connector_id=account_config.connector_id,
+                    address=account_config.address,
+                    password=account_config.password,
+                    display_name=account_config.display_name,
+                    avatar_path=account_config.avatar_path,
+                    cw_account_id=account_config.cw_account_id,
+                    cw_inbox_id=account_config.cw_inbox_id,
+                )
+            ],
+            deltachat_accounts_dir="/tmp/deltachat",
+            enable_native_deltachat_channel=True,
+        )
+        native_routing = DeltaChatRouting(settings.delta_chat_accounts)
+        native_client = MagicMock(spec=DeltaChatClient)
+        native_client.is_native_enabled = True
+        native_transport = MagicMock()
+        native_channel = DeltaChatChannel(
+            native_routing,
+            native_client,
+            native_transport,
+            processor,
+        )
+
+        native_client.start = MagicMock()
+        native_client.stop = MagicMock()
+        native_client.register_message_handler = MagicMock()
+
+        await native_channel.on_startup()
+        await native_channel.on_shutdown()
+
+        native_client.register_message_handler.assert_called_once()
+        native_client.start.assert_called_once()
+        native_client.stop.assert_called_once()

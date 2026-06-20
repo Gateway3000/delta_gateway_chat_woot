@@ -25,9 +25,22 @@ class DeltaChatChannel(IChannel):
         self._io_processor = io_processor
 
     async def on_startup(self) -> None:
+        if not self._client.is_native_enabled:
+            return
+
+        loop = asyncio.get_running_loop()
+
+        def _dispatch(_runtime_account: Any, payload: dict[str, Any]) -> None:
+            asyncio.run_coroutine_threadsafe(
+                self._publish_incoming(payload), loop
+            )
+
+        self._client.register_message_handler(_dispatch)
         await asyncio.to_thread(self._client.start)
 
     async def on_shutdown(self) -> None:
+        if not self._client.is_native_enabled:
+            return
         await asyncio.to_thread(self._client.stop)
 
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
@@ -54,3 +67,11 @@ class DeltaChatChannel(IChannel):
         self, raw_data: dict[str, Any], cw_account_id: str
     ) -> None:
         await self._io_processor.publish_chatwoot_message(raw_data, cw_account_id)
+
+    async def _publish_incoming(self, payload: dict[str, Any]) -> None:
+        idempotency_key, envelope = await self._io_processor.build_channel_message(
+            payload
+        )
+        await self._io_processor.publish_channel_message(
+            idempotency_key, envelope, payload
+        )

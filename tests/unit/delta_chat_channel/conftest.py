@@ -42,7 +42,9 @@ def routing(settings: DeltaChatSettings) -> DeltaChatRouting:
 
 @pytest.fixture
 def client(settings: DeltaChatSettings, routing: DeltaChatRouting) -> MagicMock:
-    return MagicMock(spec=DeltaChatClient)
+    client = MagicMock(spec=DeltaChatClient)
+    client.is_native_enabled = False
+    return client
 
 
 @pytest.fixture
@@ -86,4 +88,3 @@ def channel(
     processor: DeltaChatMessageProcessor,
 ) -> DeltaChatChannel:
     return DeltaChatChannel(routing, client, transport, processor)
-

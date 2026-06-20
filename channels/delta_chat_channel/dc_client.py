@@ -35,6 +35,10 @@ class DeltaChatClient:
     ) -> None:
         self._new_message_handler = handler
 
+    @property
+    def is_native_enabled(self) -> bool:
+        return self._settings.enable_native_deltachat_channel
+
     def start(self) -> None:
         if not self._settings.enable_native_deltachat_channel:
             return
