@@ -1,5 +1,6 @@
 volumes:
   pgmq:
+  signal-cli:
 
 services:
   app:
@@ -8,7 +9,27 @@ services:
     container_name: gateway
     depends_on:
       - db
+      - signal-cli-rest-api
     env_file: .env
+
+  # signal-cli-rest-api hosts the Signal account(s). MODE=normal exposes the
+  # HTTP GET /v1/receive long-poll the gateway's Signal receiver pulls from.
+  # The port is published to the host so a gateway running outside this
+  # network can reach it via http://host.docker.internal:8080 (set as api_url
+  # in SIGNAL_BOTS_CONFIG). If the gateway shares this network instead, use
+  # http://signal-cli-rest-api:8080 and this publish is optional.
+  # The same published port is also used to register/link a number once before
+  # first use (e.g. GET /v1/qrcodelink).
+  signal-cli-rest-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    restart: unless-stopped
+    container_name: signal-cli-rest-api
+    ports:
+      - "8080:8080"
+    environment:
+      MODE: normal
+    volumes:
+      - signal-cli:/home/.local/share/signal-cli
 
   db:
     image: "ghcr.io/pgmq/pg${POSTGRES_VERSION}-pgmq:${PGMQ_VERSION}"
