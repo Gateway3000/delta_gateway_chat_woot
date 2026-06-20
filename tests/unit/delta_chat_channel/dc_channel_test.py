@@ -1,3 +1,7 @@
+"""Delta Chat channel tests."""
+
+# mypy: disable-error-code=no-untyped-def
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -5,7 +9,7 @@ import pytest
 from channels.delta_chat_channel.dc_channel import DeltaChatChannel
 from channels.delta_chat_channel.dc_message_processor import DeltaChatMessageProcessor
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
-from src import ChannelDeliveryResult, Envelope, SenderInfo
+from src import ChannelDeliveryResult, Envelope, IdempotencyKeyAlreadyProcessedError, SenderInfo
 
 
 class TestDeltaChatChannel:
@@ -68,6 +72,22 @@ class TestDeltaChatChannel:
         await channel.publish_chatwoot_message(raw_data, account_config.cw_account_id)
 
         processor.publish_chatwoot_message.assert_awaited_once_with(raw_data, account_config.cw_account_id)
+
+    @pytest.mark.asyncio
+    async def test_duplicate_message_id_is_ignored(
+        self, channel: DeltaChatChannel, processor: DeltaChatMessageProcessor
+    ) -> None:
+        processor.build_channel_message = AsyncMock(  # type: ignore[method-assign]
+            return_value=("delta_chat->chatwoot:delta-client-1:abc:def:ghi", object())
+        )
+        processor.publish_channel_message = AsyncMock(  # type: ignore[method-assign]
+            side_effect=IdempotencyKeyAlreadyProcessedError("duplicate")
+        )
+
+        await channel._publish_incoming({"message_id": "msg-1"})  # type: ignore[attr-defined]
+
+        processor.build_channel_message.assert_awaited_once()
+        processor.publish_channel_message.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_on_startup_and_shutdown_are_noops_when_native_disabled(self, channel: DeltaChatChannel, client) -> None:

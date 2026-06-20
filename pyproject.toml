@@ -60,6 +60,7 @@ dev = [
     "aioresponses==0.7.8",
     "pysentry-rs==0.4.3",
     "testcontainers[postgres]==4.10.0",
+    "execnet==2.1.2",
 ]
 
 [tool.pytest.ini_options]

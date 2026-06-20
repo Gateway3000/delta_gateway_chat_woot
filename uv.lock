@@ -259,6 +259,33 @@ wheels = [
 ]
 
 [[package]]
+name = "deltachat-rpc-client"
+version = "2.53.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/de/e2bfbc7b4f28ca85e7988cfc0a11e6ed88d4a26494436356812c632f7a80/deltachat_rpc_client-2.53.0.tar.gz", hash = "sha256:fa6d86e8d609caba9b64e01805c4d7f544ecd8fd6a456da254ad8b6d2f6929cc", size = 56816, upload-time = "2026-06-15T19:51:29.559Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/3e/4a49d134bdb3cdbbbc9d982dd594a8f0ef989386ba8c3a9ebce9cf7fa931/deltachat_rpc_client-2.53.0-py3-none-any.whl", hash = "sha256:3c8576eefcd7c12f9cc22e71092eec05de99f641db63df7802777de5cffa210c", size = 36584, upload-time = "2026-06-15T19:51:28.186Z" },
+]
+
+[[package]]
+name = "deltachat-rpc-server"
+version = "2.53.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/17/710a6a1171a3ed50c43cb1e4de524b7ebce893588028bd70db33114bf002/deltachat_rpc_server-2.53.0-py3-none-android_21_arm64_v8a.whl", hash = "sha256:6509061b2548ad12d31aba370d6548c80675f42846d473cdf8cbded7261ecae4", size = 12155842, upload-time = "2026-06-15T20:37:16.936Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/cb/b706dce97d92269de75a315e49d57f43b272ea4e5af6d5b2b2b491ca286f/deltachat_rpc_server-2.53.0-py3-none-android_21_armeabi_v7a.whl", hash = "sha256:a3381f2cb52d7f59109c30ea6ffd8996cc645914ba9e41fa3e2263cbac03bd47", size = 10035613, upload-time = "2026-06-15T20:37:19.424Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/a3/fe1980f23bb157513b5a2e994477e018f4360889445d6f2fb75dfd685376/deltachat_rpc_server-2.53.0-py3-none-linux_armv6l.whl", hash = "sha256:a14be2b32dfa2054d6ebdff95cc7426ddfcfae02a478f65658b2abfce9cb2273", size = 10962721, upload-time = "2026-06-15T20:37:21.475Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/40/a0cb3a7e53a3556c37e947a2d53fb324858b384c9aac2a0fc0e34a0b3519/deltachat_rpc_server-2.53.0-py3-none-linux_armv7l.manylinux_2_17_armv7l.manylinux2014_armv7l.musllinux_1_1_armv7l.whl", hash = "sha256:eb056b60a48506f38f28187eea2763a5e251d9179b2f31c1624e447b7e41d7d7", size = 10849299, upload-time = "2026-06-15T20:37:23.522Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/b8/e4322b3e2e724dd6f654fa5b54ddfdf2dda9d10aa9aa4d152b27785488fb/deltachat_rpc_server-2.53.0-py3-none-macosx_10_7_x86_64.whl", hash = "sha256:4178b069455cd8cd5e8c258010e235f77193ddaa122557886ae51ee28d9a5d1c", size = 10823704, upload-time = "2026-06-15T20:37:25.448Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/40/609f5ddf1f3fdc2a833fab08235e1d49876cc4c566f319d0dc5ef2f7e576/deltachat_rpc_server-2.53.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:634453811a94a07425642ab4a2027d723a3ce1dac810c0eed24db65167ce687d", size = 10550902, upload-time = "2026-06-15T20:37:27.277Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/e9/5dacff5697d512937a03edfa423f5a5518623d26df68b5e3c8b4255d661b/deltachat_rpc_server-2.53.0-py3-none-manylinux_2_12_i686.manylinux2010_i686.musllinux_1_1_i686.whl", hash = "sha256:503d83c6a45c1e929e09850070cd72bce69c8e232eb8deefc926378d1fdc2e31", size = 11512575, upload-time = "2026-06-15T20:37:29.277Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/55/3ae9241c2abc92e64e25100f6a7010aad39a463078ec781da488f26a910f/deltachat_rpc_server-2.53.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:9b777638e132eaf860b724d0521e4dca8de2d3976a3587f482b5be0f8bc2efcf", size = 12113817, upload-time = "2026-06-15T20:37:31.343Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/a2/bdc1521a13de66ac3f38a1695d8019f06fdb1aa528782f1fc3d757c6f85c/deltachat_rpc_server-2.53.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.musllinux_1_1_x86_64.whl", hash = "sha256:5d87ab664667f4a8e0926aa0e6428efe88fb37fb30a17abe00a9d777675e0cd0", size = 12502677, upload-time = "2026-06-15T20:37:33.401Z" },
+    { url = "https://files.pythonhosted.org/packages/78/02/7c2a7784cb78e04d938c34fc43ed7ae09f349f4d11c0f8c6823db0a499c6/deltachat_rpc_server-2.53.0-py3-none-win32.whl", hash = "sha256:20208d59065c2e1ef5d0ce2989a45b7207542e61e0adcf4b3e54f0132f638c0e", size = 10918713, upload-time = "2026-06-15T20:37:35.983Z" },
+    { url = "https://files.pythonhosted.org/packages/90/29/67b05534a0c2dc893466fb05b77bcd7687c653fa097a420f6d384dd278df/deltachat_rpc_server-2.53.0-py3-none-win_amd64.whl", hash = "sha256:f08d44c5712665b968d2ec2fbe62b042d5b212ebd3a63ce6403bb43b95f7a6bd", size = 11130396, upload-time = "2026-06-15T20:37:38.179Z" },
+]
+
+[[package]]
 name = "distlib"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -301,6 +328,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz", hash = "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426", size = 51238, upload-time = "2025-08-26T13:09:06.831Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/de/15/545e2b6cf2e3be84bc1ed85613edd75b8aea69807a71c26f4ca6a9258e82/email_validator-2.3.0-py3-none-any.whl", hash = "sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4", size = 35604, upload-time = "2025-08-26T13:09:05.858Z" },
+]
+
+[[package]]
+name = "execnet"
+version = "2.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/89/780e11f9588d9e7128a3f87788354c7946a9cbb1401ad38a48c4db9a4f07/execnet-2.1.2.tar.gz", hash = "sha256:63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd", size = 166622, upload-time = "2025-11-12T09:56:37.75Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/84/02fc1827e8cdded4aa65baef11296a9bbe595c474f0d6d758af082d849fd/execnet-2.1.2-py3-none-any.whl", hash = "sha256:67fba928dd5a544b783f6056f449e5e3931a5c378b128bc18501f7ea79e296ec", size = 40708, upload-time = "2025-11-12T09:56:36.333Z" },
 ]
 
 [[package]]
@@ -499,6 +535,8 @@ dependencies = [
     { name = "aiogram" },
     { name = "aiolimiter" },
     { name = "asyncpg" },
+    { name = "deltachat-rpc-client" },
+    { name = "deltachat-rpc-server" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "opentelemetry-distro" },
@@ -521,6 +559,7 @@ sentry = [
 dev = [
     { name = "aioresponses" },
     { name = "coverage" },
+    { name = "execnet" },
     { name = "httpx" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -539,6 +578,8 @@ requires-dist = [
     { name = "aiogram", specifier = "==3.25" },
     { name = "aiolimiter", specifier = "==1.2.0" },
     { name = "asyncpg", specifier = "==0.30.0" },
+    { name = "deltachat-rpc-client", specifier = "==2.53.0" },
+    { name = "deltachat-rpc-server", specifier = "==2.53.0" },
     { name = "fastapi", specifier = "==0.133.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "opentelemetry-distro", specifier = "==0.61b0" },
@@ -558,6 +599,7 @@ provides-extras = ["sentry"]
 dev = [
     { name = "aioresponses", specifier = "==0.7.8" },
     { name = "coverage", specifier = "==7.13.0" },
+    { name = "execnet", specifier = "==2.1.2" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "mypy", specifier = "==1.19.0" },
     { name = "pre-commit", specifier = "==4.5.0" },

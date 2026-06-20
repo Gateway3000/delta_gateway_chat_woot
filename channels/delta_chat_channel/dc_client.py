@@ -26,12 +26,14 @@ class DeltaChatClient:
         self._accounts_by_account_id: dict[int, DeltaChatRuntimeAccount] = {}
         self._account_objects_by_connector_id: dict[str, Any] = {}
         self._account_objects_by_account_id: dict[int, Any] = {}
-        self._new_message_handler: Callable[[DeltaChatRuntimeAccount, dict], None] | None = None
+        self._new_message_handler: Callable[
+            [DeltaChatRuntimeAccount, dict[str, Any]], None
+        ] | None = None
         self._stop_event = threading.Event()
         self._event_threads: list[threading.Thread] = []
 
     def set_new_message_handler(
-        self, handler: Callable[[DeltaChatRuntimeAccount, dict], None]
+        self, handler: Callable[[DeltaChatRuntimeAccount, dict[str, Any]], None]
     ) -> None:
         self._new_message_handler = handler
 
@@ -134,7 +136,7 @@ class DeltaChatClient:
             return config.storage_dir
         return str(Path(self._settings.deltachat_accounts_dir) / config.connector_id)
 
-    def get_account(self, connector_id: str) -> Account:
+    def get_account(self, connector_id: str) -> Any:
         account = self._account_objects_by_connector_id.get(connector_id)
         if account is None:
             raise KeyError(f"Unknown connector_id={connector_id}")
@@ -157,14 +159,16 @@ class DeltaChatClient:
         return runtime_account
 
     def register_message_handler(
-        self, handler: Callable[[DeltaChatRuntimeAccount, dict], None]
+        self, handler: Callable[[DeltaChatRuntimeAccount, dict[str, Any]], None]
     ) -> None:
         self._new_message_handler = handler
         if self._deltachat is not None and not self._event_threads:
             self._start_event_threads()
 
     @property
-    def new_message_handler(self) -> Callable[[DeltaChatRuntimeAccount, dict], None] | None:
+    def new_message_handler(
+        self,
+    ) -> Callable[[DeltaChatRuntimeAccount, dict[str, Any]], None] | None:
         return self._new_message_handler
 
     def _start_event_threads(self) -> None:
@@ -182,10 +186,9 @@ class DeltaChatClient:
             self._event_threads.append(thread)
 
     def _event_loop(self, runtime_account: DeltaChatRuntimeAccount) -> None:
-        account = self.get_account(runtime_account.connector_id)
-
         while not self._stop_event.is_set():
             try:
+                account = self.get_account(runtime_account.connector_id)
                 event = account.wait_for_incoming_msg_event()
             except Exception:
                 if self._stop_event.is_set():
@@ -234,6 +237,8 @@ class DeltaChatClient:
                     == "GROUP",
                     "is_info": bool(snapshot.get("is_info")),
                 }
+                if payload["sender_address"].strip().lower() == runtime_account.address.strip().lower():
+                    continue
                 self._new_message_handler(runtime_account, payload)
             except Exception:
                 continue

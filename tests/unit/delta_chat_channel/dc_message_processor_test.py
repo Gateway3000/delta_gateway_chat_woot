@@ -1,3 +1,7 @@
+"""Delta Chat message processor tests."""
+
+# mypy: disable-error-code=no-untyped-def
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -67,6 +71,61 @@ async def test_build_channel_message_produces_expected_envelope(
     assert envelope.sender.external_id == "delta_chat_actor_1"
     assert envelope.sender.raw_external_id == "user@example.org"
     assert envelope.payload["text"] == "Hello from Delta Chat"
+    assert envelope.payload["chat_id"] == "42"
+
+
+@pytest.mark.asyncio
+async def test_same_numeric_chat_id_uses_connector_id_for_routing(identity_store) -> None:
+    first_account = DeltaChatAccountConfig(
+        connector_id="delta-client-1",
+        address="bot1@example.org",
+        password="secret",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+    second_account = DeltaChatAccountConfig(
+        connector_id="delta-client-2",
+        address="bot2@example.org",
+        password="secret",
+        cw_account_id="1",
+        cw_inbox_id="6",
+    )
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[first_account, second_account],
+        deltachat_accounts_dir="/tmp/deltachat",
+        enable_native_deltachat_channel=True,
+    )
+    routing = DeltaChatRouting(settings.delta_chat_accounts)
+    client = MagicMock()
+    transport = DeltaChatTransport(settings, routing, client, identity_store)
+    mq = AsyncMock()
+    processor = DeltaChatMessageProcessor(
+        routing,
+        transport,
+        identity_store,
+        mq,
+        "to_cw",
+        "from_cw",
+    )
+
+    raw_data = {
+        "account_id": 22,
+        "connector_id": "delta-client-2",
+        "message_id": "msg-2",
+        "chat_id": 42,
+        "sender_id": "sender-1",
+        "sender_address": "user@example.org",
+        "sender_name": "Delta User",
+        "text": "Hello from Delta Chat",
+        "attachments": [],
+        "is_group": False,
+        "is_info": False,
+    }
+
+    _, envelope = await processor.build_channel_message(raw_data)
+
+    assert envelope.connector_id == "delta-client-2"
+    assert envelope.cw_inbox_id == "6"
     assert envelope.payload["chat_id"] == "42"
 
 

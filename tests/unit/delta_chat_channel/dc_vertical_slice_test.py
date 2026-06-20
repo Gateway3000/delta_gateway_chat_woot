@@ -1,3 +1,7 @@
+"""Delta Chat vertical slice smoke test."""
+
+# mypy: disable-error-code=no-untyped-def
+
 from __future__ import annotations
 
 import asyncio

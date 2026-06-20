@@ -6,7 +6,12 @@ from channels.delta_chat_channel.dc_client import DeltaChatClient
 from channels.delta_chat_channel.dc_message_processor import DeltaChatMessageProcessor
 from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
-from src import ChannelDeliveryResult, Envelope, IChannel
+from src import (
+    ChannelDeliveryResult,
+    Envelope,
+    IChannel,
+    IdempotencyKeyAlreadyProcessedError,
+)
 
 
 class DeltaChatChannel(IChannel):
@@ -69,9 +74,12 @@ class DeltaChatChannel(IChannel):
         await self._io_processor.publish_chatwoot_message(raw_data, cw_account_id)
 
     async def _publish_incoming(self, payload: dict[str, Any]) -> None:
-        idempotency_key, envelope = await self._io_processor.build_channel_message(
-            payload
-        )
-        await self._io_processor.publish_channel_message(
-            idempotency_key, envelope, payload
-        )
+        try:
+            idempotency_key, envelope = await self._io_processor.build_channel_message(
+                payload
+            )
+            await self._io_processor.publish_channel_message(
+                idempotency_key, envelope, payload
+            )
+        except IdempotencyKeyAlreadyProcessedError:
+            return

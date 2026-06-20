@@ -1,3 +1,7 @@
+"""Delta Chat transport tests."""
+
+# mypy: disable-error-code=no-untyped-def
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -5,7 +9,7 @@ import pytest
 from channels.delta_chat_channel.dc_models import DeltaChatAccountConfig
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
 from channels.delta_chat_channel.dc_transport import DeltaChatTransport
-from src import ChannelDeliveryResult, Envelope, SenderInfo
+from src import ChannelDeliveryResult, ConnectorNotFoundError, Envelope, SenderInfo
 
 
 class TestDeltaChatTransport:
@@ -21,6 +25,36 @@ class TestDeltaChatTransport:
 
         with pytest.raises(ValueError, match="bridge_url is not allowed"):
             DeltaChatTransport(settings, routing, client, identity_store)
+
+    @pytest.mark.asyncio
+    async def test_unknown_connector_id_raises_connector_not_found(
+        self, routing, account_config: DeltaChatAccountConfig, identity_store
+    ) -> None:
+        native_account_config = account_config.model_copy(update={"bridge_url": None})
+        settings = DeltaChatSettings(
+            delta_chat_accounts=[native_account_config],
+            deltachat_accounts_dir="/tmp/deltachat",
+            enable_native_deltachat_channel=True,
+        )
+        client = MagicMock()
+        transport = DeltaChatTransport(settings, routing, client, identity_store)
+
+        message = Envelope(
+            idem_key="key",
+            channel="delta_chat",
+            from_="chatwoot",
+            to="delta_chat",
+            connector_id="unknown-connector",
+            cw_account_id=native_account_config.cw_account_id,
+            cw_inbox_id=native_account_config.cw_inbox_id,
+            message_id="msg-1",
+            sender=SenderInfo(external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"),
+            payload={"text": "hello", "attachments": []},
+            ts=1.0,
+        )
+
+        with pytest.raises(ConnectorNotFoundError):
+            await transport.send_to_delta_chat_user(message.model_dump(mode="json"))
 
     @pytest.mark.asyncio
     async def test_send_to_user_uses_native_rpc(
