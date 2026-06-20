@@ -29,18 +29,17 @@ dependencies = [
     "opentelemetry-exporter-otlp==1.40.0",
     "opentelemetry-instrumentation-fastapi==0.61b0",
     "opentelemetry-sdk==1.40.0",
+    "httpx>=0.28.1",
 ]
 
 [project.entry-points."multichannel_gateway.channels"]
-# telegram = "channels.telegram_channel.tg_wiring:telegram_channel"
-# email = "channels.email_channel.email_wiring:email_channel"
+telegram = "channels.telegram_channel.tg_wiring:telegram_channel"
+email = "channels.email_channel.email_wiring:email_channel"
 imessage = "channels.imessage_channel:imessage_channel"
 
 
 [project.optional-dependencies]
-sentry = [
-    "sentry-sdk[opentelemetry-otlp]==2.56.0",
-]
+sentry = ["sentry-sdk[opentelemetry-otlp]==2.56.0"]
 
 [dependency-groups]
 dev = [
