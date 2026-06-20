@@ -6,17 +6,17 @@ from src import Settings
 class BotConfig(BaseModel):
     """Connection config for a single Signal account.
 
-    Signal runs inside a `signal-cli-rest-api` container. Unlike Telegram
-    (a central platform issuing bot tokens), each "bot" here is one phone
-    `number` already registered/linked in that container, reachable at
-    `api_url`. A single container can host several numbers, so `api_url`
-    may be shared across connectors while `number` is what distinguishes
-    the account.
+    Signal is fronted by a `signal-bridge` container (a small presage-based
+    daemon) that speaks a newline-delimited JSON protocol over TCP. Each
+    "bot" is one phone `number` linked into one bridge instance, reached at
+    `host`:`port`. A separate Signal number means a separate bridge instance
+    (its own linked session/db), hence its own host/port here.
     """
 
     connector_id: str
-    number: str  # the registered Signal number, e.g. "+4917624102926"
-    api_url: str  # signal-cli-rest-api base URL, e.g. "http://signal:8080"
+    number: str  # the linked Signal number
+    host: str  # signal-bridge hostname, e.g. "signal-bridge"
+    port: int = 8080  # signal-bridge TCP port
     cw_account_id: str
     cw_inbox_id: str
 
@@ -26,13 +26,11 @@ class SignalSettings(Settings):
         default_factory=list,
         validation_alias="SIGNAL_BOTS_CONFIG",
     )
-    # signal-cli-rest-api does not push webhooks; we long-poll
-    # `GET /v1/receive/{number}`. `receive_timeout` is the server-side
-    # long-poll window (seconds) and `receive_poll_delay` is how long we
-    # back off before re-polling after an empty result or a network blip.
-    receive_timeout: int = 10
-    receive_poll_delay: float = 1.0
-    receive_error_backoff: float = 5.0
+    # How long to wait for a `send_result` from the bridge before treating a
+    # send as failed (transient), and how long to wait between reconnect
+    # attempts when the bridge connection drops.
+    send_timeout: float = 30.0
+    reconnect_delay: float = 3.0
 
     def __init__(self, **data: object) -> None:
         if "bots_config" in data and "SIGNAL_BOTS_CONFIG" not in data:

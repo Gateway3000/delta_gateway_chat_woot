@@ -10,7 +10,9 @@ from src import pgmq
 
 sig_settings = SignalSettings()
 sig_bot_manager = SignalBotManager(
-    sig_settings.bots_config, sig_settings.receive_timeout
+    sig_settings.bots_config,
+    sig_settings.send_timeout,
+    sig_settings.reconnect_delay,
 )
 sig_routing = SignalRouting(sig_settings.bots_config)
 sig_transport = SignalTransport(sig_bot_manager)

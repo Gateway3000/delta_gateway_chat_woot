@@ -9,8 +9,9 @@ from channels.signal_channel.sig_routing import SignalRouting
 def bot_config() -> BotConfig:
     return BotConfig(
         connector_id="sig1",
-        number="+4917624102926",
-        api_url="http://signal:8080",
+        number="+0000000000",
+        host="signal-bridge",
+        port=8080,
         cw_account_id="1",
         cw_inbox_id="11",
     )
@@ -31,11 +32,21 @@ def envelope_factory(routing: SignalRouting) -> SignalEnvelopeFactory:
     return SignalEnvelopeFactory(routing)
 
 
-def make_item(envelope: dict, *, connector_id: str = "sig1") -> dict:
-    """Wrap a raw signal envelope the way the receiver hands it to the factory."""
+def make_message(
+    *,
+    source_uuid: str = "2647ff35-bb65-4459-90d8-c5c832c04d08",
+    source_name: str | None = "Ellie",
+    message: str = "Hi",
+    timestamp: int = 1781965264745,
+    connector_id: str = "sig1",
+) -> dict:
+    """Build a signal-bridge `message` event as the receiver hands it to the factory."""
     return {
-        "envelope": envelope,
-        "account": "+4917624102926",
+        "type": "message",
+        "source_uuid": source_uuid,
+        "source_name": source_name,
+        "timestamp": timestamp,
+        "message": message,
         "channel": "signal",
         "connector_id": connector_id,
     }

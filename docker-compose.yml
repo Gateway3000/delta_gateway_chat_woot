@@ -1,6 +1,6 @@
 volumes:
   pgmq:
-  signal-cli:
+  signal-data:
 
 services:
   app:
@@ -9,27 +9,35 @@ services:
     container_name: gateway
     depends_on:
       - db
-      - signal-cli-rest-api
+      - signal-bridge
     env_file: .env
 
-  # signal-cli-rest-api hosts the Signal account(s). MODE=normal exposes the
-  # HTTP GET /v1/receive long-poll the gateway's Signal receiver pulls from.
-  # The port is published to the host so a gateway running outside this
-  # network can reach it via http://host.docker.internal:8080 (set as api_url
-  # in SIGNAL_BOTS_CONFIG). If the gateway shares this network instead, use
-  # http://signal-cli-rest-api:8080 and this publish is optional.
-  # The same published port is also used to register/link a number once before
-  # first use (e.g. GET /v1/qrcodelink).
-  signal-cli-rest-api:
-    image: bbernhard/signal-cli-rest-api:latest
+  # signal-bridge fronts the Signal account: a small presage-based daemon that
+  # speaks newline-delimited JSON over TCP. The gateway's Signal connector
+  # connects to it in-network at signal-bridge:8080 (host/port in
+  # SIGNAL_BOTS_CONFIG) — no port needs to be published to the host.
+  #
+  # Link the account once before first use (renders a QR / prints the URL):
+  #   docker compose run --rm signal-bridge link
+  # The linked session is persisted in the signal-data volume.
+  signal-bridge:
+    build:
+      context: ./signal-service/signal-bridge
+    image: signal-bridge:latest
     restart: unless-stopped
-    container_name: signal-cli-rest-api
+    container_name: signal-bridge
+    command: ["serve", "--listen", "0.0.0.0:8080"]
+    # Published to the host so a gateway running outside this compose network
+    # can reach it at host.docker.internal:8080 (the host set in
+    # SIGNAL_BOTS_CONFIG). If the gateway shares this network, you can switch
+    # the host to "signal-bridge" and drop this to `expose: ["8080"]`.
     ports:
       - "8080:8080"
     environment:
-      MODE: normal
+      SIGNAL_DB_PATH: /data/signal.db3
+      SIGNAL_SERVERS: production
     volumes:
-      - signal-cli:/home/.local/share/signal-cli
+      - signal-data:/data
 
   db:
     image: "ghcr.io/pgmq/pg${POSTGRES_VERSION}-pgmq:${PGMQ_VERSION}"

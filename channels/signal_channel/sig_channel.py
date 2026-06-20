@@ -26,7 +26,9 @@ class SignalChannel(IChannel):
         self._receiver = receiver
 
     async def on_startup(self) -> None:
-        # Signal has no inbound webhook; start the long-poll receive loop.
+        # Signal has no inbound webhook; open the persistent bridge
+        # connections, then start draining inbound messages from them.
+        await self._bot_manager.start_all()
         await self._receiver.start()
 
     async def on_shutdown(self) -> None:
