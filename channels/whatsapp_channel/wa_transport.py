@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 import structlog
@@ -22,6 +23,23 @@ class WhatsAppTransport:
         self._routing = routing
         self._settings = settings
 
+    def _internal_url(self, data_url: str | None) -> str | None:
+        """Rewrite a Chatwoot attachment URL to the internally-reachable host.
+
+        Chatwoot builds attachment URLs from its public/FRONTEND_URL (often
+        localhost), which the sidecar can't fetch from inside Docker. Swap the
+        scheme+host for CHATWOOT_BASE_URL (e.g. http://chatwoot-web:3000) so the
+        sidecar pulls the real bytes instead of a 404 page.
+        """
+        if not data_url:
+            return data_url
+        base = self._settings.chatwoot_base_url
+        if not base:
+            return data_url
+        b = urlsplit(base)
+        p = urlsplit(data_url)
+        return urlunsplit((b.scheme, b.netloc, p.path, p.query, p.fragment))
+
     async def send_to_whatsapp_user(
         self, message: dict[str, Any]
     ) -> ChannelDeliveryResult:
@@ -36,7 +54,7 @@ class WhatsAppTransport:
             "text": str(envelope.payload.get("text") or ""),
             "attachments": [
                 {
-                    "data_url": a.get("data_url"),
+                    "data_url": self._internal_url(a.get("data_url")),
                     "mime_type": a.get("mime_type") or a.get("content_type"),
                     "filename": a.get("filename"),
                 }

@@ -26,10 +26,14 @@ class SessionTransport:
         if not text:
             raise FatalError("Session delivery failure: no text to send")
 
+        # NOTE: deliberately do NOT set "source" here. The bridge's /webhook
+        # send endpoint ignores any payload whose source == its ignoreSource
+        # (also "session_bot"), treating it as its own looped-back inbound
+        # traffic and returning 202 without sending. Sending the marker on the
+        # reply path silently drops every outbound message.
         outbound_payload = {
             "to": envelope.sender.external_id,
             "text": text,
-            "source": self._bot_source_name,
         }
 
         try:

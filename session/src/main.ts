@@ -34,8 +34,8 @@ function parseArgs(argv: string[]): CliArgs {
   return {
     mnemonic,
     webhookUrl,
-    host: get('--host') ?? '127.0.0.1',
-    port: Number(get('--port') ?? '8080'),
+    host: get('--host') ?? process.env.HOST ?? '127.0.0.1',
+    port: Number(get('--port') ?? process.env.PORT ?? '8080'),
     path: get('--path') ?? '/webhook',
     nick: get('--nick') ?? 'session-webhook-bot',
     timeoutMs: Number(get('--timeout-ms') ?? '10000'),

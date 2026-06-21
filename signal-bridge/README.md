@@ -43,11 +43,14 @@ Render it as a QR code (or paste the URL) and scan it from the phone:
 On start it emits a `linked` event then `{"type":"ready"}`.
 
 ### Incoming (stdout)
-Only **1:1 text** messages are surfaced (groups, reactions, receipts, typing,
-sync and empty bodies are dropped):
+**1:1** messages are surfaced (groups, reactions, receipts, typing, sync and
+content with neither text nor a fetchable attachment are dropped). Attachments
+are downloaded from Signal's CDN and carried inline as base64:
 ```json
-{"type":"message","source_uuid":"2647ff35-…","source_name":"Ellie","timestamp":1781965264745,"message":"Hi"}
+{"type":"message","source_uuid":"2647ff35-…","source_name":"Ellie","timestamp":1781965264745,"message":"Hi","attachments":[]}
+{"type":"message","source_uuid":"2647ff35-…","timestamp":1781965264745,"message":"","attachments":[{"data":"<base64>","content_type":"image/jpeg","filename":"photo.jpg","size":12345}]}
 ```
+`message` may be empty when the attachment is the whole message.
 Other lifecycle events: `{"type":"queue_empty"}`, `{"type":"error","error":"…"}`.
 
 ### Outgoing (stdin)
@@ -56,7 +59,19 @@ One JSON object per line:
 {"recipient":"2647ff35-bb65-4459-90d8-c5c832c04d08","message":"Hello back"}
 ```
 `recipient` is a bare UUID (treated as an ACI) or a full service-id string
-(`PNI:<uuid>`). Each send yields:
+(`PNI:<uuid>`).
+
+To send attachments, add an `attachments` array. Each entry carries its bytes
+inline as base64 (so the request stays a single line); the bridge uploads them
+to Signal's CDN and links them into the message. `message` may be empty when
+the attachment is the whole message:
+```json
+{"recipient":"2647ff35-…","message":"see pic",
+ "attachments":[{"data":"<base64>","content_type":"image/png",
+                 "filename":"pic.png","voice_note":false}]}
+```
+`content_type` (default `application/octet-stream`), `filename`, and
+`voice_note` are optional. Each send yields:
 ```json
 {"type":"send_result","ok":true,"recipient":"2647ff35-…","timestamp":1781965272850}
 ```
