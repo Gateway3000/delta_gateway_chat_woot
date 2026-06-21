@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -44,3 +44,15 @@ class TestChannelRegistryDiscoverChannels:
 
         with pytest.raises(RuntimeError, match="No channels discovered"):
             self.registry.discover_channels("nonexistent.group")
+
+
+@pytest.mark.asyncio
+async def test_channel_aliases_share_one_lifecycle() -> None:
+    registry = ChannelRegistry()
+    channel = Mock(channel="delta_chat")
+    channel.on_startup = AsyncMock()
+    registry._channels = {"delta_chat": channel, "deltachat": channel}
+
+    await registry.on_startup()
+
+    channel.on_startup.assert_awaited_once_with()

@@ -12,6 +12,10 @@ services:
     networks:
       gateway:
 
+  deltawoot:
+    networks:
+      gateway:
+
   db:
     container_name: db-gateway
     networks:

@@ -12,7 +12,15 @@ class IChannel(ABC):
     not by calling subsystem methods directly.
     """
 
-    channel: Literal["telegram", "email", "signal", "whatsapp", "telephony", "viber", "bitchat", "session"]
+    channel: Literal[
+        "telegram",
+        "email",
+        "delta_chat",
+        "signal",
+        "whatsapp",
+        "telephony",
+        "viber",
+    ]
 
     async def on_prefork(self) -> None:
         """Performs actions before the process fork."""

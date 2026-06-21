@@ -12,6 +12,7 @@ from src.multichannel_gateway.infrastructure import (
     HTTPSessionManager,
     PGMessageQueue,
 )
+from src.multichannel_gateway.infrastructure.identity_store import IdentityStore
 
 settings: Settings = Settings()
 telemetry_settings: TelemetrySettings = TelemetrySettings()
@@ -19,6 +20,7 @@ telemetry_settings: TelemetrySettings = TelemetrySettings()
 conn_manager: ConnManager = ConnManager(settings.db_url)
 
 pgmq: PGMessageQueue = PGMessageQueue(settings, conn_manager)
+identity_store: IdentityStore = IdentityStore(conn_manager)
 
 cw_session_manager: HTTPSessionManager = HTTPSessionManager()
 

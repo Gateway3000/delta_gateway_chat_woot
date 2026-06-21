@@ -1,0 +1,45 @@
+# common
+README.md
+CHANGELOG.md
+**/.aws
+**/.ssh
+docker-compose.yml
+Dockerfile
+.docker
+.dockerignore
+
+# git
+.git
+.gitattributes
+.gitignore
+
+
+# python
+**/__pycache__/
+**/*.py[cod]
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+*.log
+
+# Vim swap files
+**/*.swp
+
+# VS Code
+.vscode/
+
+green-check-chain.png
+accounts/
+.env

@@ -75,6 +75,19 @@ class PGMessageQueue:
         await conn.execute("SELECT pgmq.enable_notify_insert('to_cw');")
         await conn.execute("SELECT pgmq.enable_notify_insert('from_cw');")
 
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS identity_mappings (
+                channel TEXT NOT NULL,
+                external_id TEXT NOT NULL,
+                actor_id TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                PRIMARY KEY (channel, external_id),
+                UNIQUE (channel, actor_id)
+            );
+            """
+        )
+
         logger.debug("Tables and extensions ensured.")
 
     async def send(self, queue_name: str, payload: Mapping[str, Any] | str) -> None:

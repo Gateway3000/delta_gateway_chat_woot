@@ -61,7 +61,6 @@ async def handle_chatwoot_payload(
         if payload.get("message_type") == "outgoing":
             try:
                 identifier = payload["conversation"]["meta"]["sender"]["identifier"]
-
                 if settings.anonymize_users:
                     # Identifier is an opaque alias — resolve it back to real_id.
                     # Channel comes from the webhook URL (no prefix to detect from).
@@ -100,6 +99,17 @@ async def handle_chatwoot_payload(
 
         logger.debug(f"Chatwoot->{channel.capitalize()} webhook processed successfully")
         return None
+
+
+def _resolve_outgoing_channel(
+    identifier: Any, url_channel: str, registry: Any
+) -> str:
+    """Pick the channel from the identifier's prefix, else the URL channel."""
+    if isinstance(identifier, str):
+        for name in registry.channel_names:
+            if identifier.startswith(f"{name}_"):
+                return name
+    return url_channel
 
 
 def _resolve_outgoing_channel(
