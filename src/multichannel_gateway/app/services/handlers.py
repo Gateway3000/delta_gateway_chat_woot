@@ -61,7 +61,30 @@ async def handle_chatwoot_payload(
         if payload.get("message_type") == "outgoing":
             try:
                 identifier = payload["conversation"]["meta"]["sender"]["identifier"]
-                if settings.anonymize_users:
+
+                # Some channels (e.g. delta_chat) own their identity mapping via
+                # IdentityStore and tag the Chatwoot contact identifier with a
+                # "<channel>_<token>" prefix, resolving it back to the real
+                # address themselves in their transport — so they must receive
+                # the identifier verbatim. Under anonymization, alias_store
+                # identifiers are bare UUIDs with no channel prefix, so a
+                # registered-channel prefix here unambiguously marks such a
+                # channel: route to it and leave the identifier intact, ahead of
+                # the alias_store lookup (which doesn't know these identifiers).
+                identity_channel = None
+                if settings.anonymize_users and isinstance(identifier, str):
+                    identity_channel = next(
+                        (
+                            name
+                            for name in registry.channel_names
+                            if identifier.startswith(f"{name}_")
+                        ),
+                        None,
+                    )
+
+                if identity_channel is not None:
+                    target_channel = identity_channel
+                elif settings.anonymize_users:
                     # Identifier is an opaque alias — resolve it back to real_id.
                     # Channel comes from the webhook URL (no prefix to detect from).
                     real_id = await alias_store.resolve_alias(identifier)
