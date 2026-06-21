@@ -77,10 +77,10 @@ class _FakeAccount:
     def set_avatar(self, *_args: object, **_kwargs: object) -> None:
         return None
 
-    def wait_for_incoming_msg_event(self) -> SimpleNamespace:
+    def wait_for_event(self) -> SimpleNamespace:
         if not self._event_sent:
             self._event_sent = True
-            return SimpleNamespace(msg_id=99)
+            return SimpleNamespace(kind="IncomingMsg", msg_id=99)
         self._stop_release.wait(timeout=5.0)
         raise RuntimeError("listener stopped")
 

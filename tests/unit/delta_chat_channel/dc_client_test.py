@@ -22,12 +22,12 @@ class _LoopAccount:
         self._stop_event = stop_event
         self._event_sent = False
 
-    def wait_for_incoming_msg_event(self) -> SimpleNamespace:
+    def wait_for_event(self) -> SimpleNamespace:
         if self._event_sent:
             self._stop_event.wait(timeout=2.0)
             raise RuntimeError("stop")
         self._event_sent = True
-        return SimpleNamespace(msg_id=1)
+        return SimpleNamespace(kind="IncomingMsg", msg_id=1)
 
     def get_message_by_id(self, _msg_id: int) -> MagicMock:
         message = MagicMock()
@@ -168,7 +168,7 @@ def test_dcaccount_url_bootstrap_resolves_credentials(monkeypatch) -> None:
             }
 
     monkeypatch.setattr(
-        "channels.delta_chat_channel.dc_client.httpx.get",
+        "channels.delta_chat_channel.dc_client.httpx.post",
         lambda *_args, **_kwargs: _Response(),
     )
     config = DeltaChatAccountConfig(
@@ -185,6 +185,53 @@ def test_dcaccount_url_bootstrap_resolves_credentials(monkeypatch) -> None:
     assert resolved.address == "bootstrap@example.org"
     assert resolved.password == "bootstrap-secret"
     assert resolved.display_name == "Bootstrap Bot"
+
+
+def test_dcaccount_url_is_not_reprovisioned_when_account_exists(monkeypatch) -> None:
+    """A dcaccount_url mints a fresh address per call, so on a restart with an
+    already-configured account we must reuse it, not POST /new again."""
+    config = DeltaChatAccountConfig(
+        connector_id="delta-bootstrap",
+        dcaccount_url="dcaccount:https://example.org/new",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[config],
+        deltachat_accounts_dir="/tmp/deltachat",
+        enable_native_deltachat_channel=True,
+    )
+    routing = DeltaChatRouting(settings.delta_chat_accounts)
+    client = DeltaChatClient(settings, routing)
+
+    stored = {
+        "addr": "already@example.org",
+        "ui.connector_id": "delta-bootstrap",
+    }
+    existing = MagicMock()
+    existing.id = 11
+    existing.get_config.side_effect = lambda key: stored.get(key)
+    existing.is_configured.return_value = True
+
+    client._deltachat = MagicMock()
+    client._deltachat.get_all_accounts.return_value = [existing]
+
+    def _fail_post(*_args, **_kwargs):
+        raise AssertionError("dcaccount_url must not be fetched when account exists")
+
+    monkeypatch.setattr(
+        "channels.delta_chat_channel.dc_client.httpx.post", _fail_post
+    )
+
+    client._sync_accounts()
+
+    # Reused the existing account, refreshed ui.* metadata, never re-added transport.
+    existing.add_or_update_transport.assert_not_called()
+    client._deltachat.add_account.assert_not_called()
+    existing.set_config.assert_any_call("ui.cw_inbox_id", "5")
+    runtime = client.get_runtime_account_by_connector_id("delta-bootstrap")
+    assert runtime.account_id == 11
+    assert runtime.address == "already@example.org"
 
 
 def test_own_messages_are_ignored() -> None:

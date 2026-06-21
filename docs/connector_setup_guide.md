@@ -259,6 +259,19 @@ DELTACHAT_ACCOUNTS_DIR=/data/deltachat
 DELTACHAT_RPC_SERVER_PATH=deltachat-rpc-server
 ```
 
+**Auto-provision a chatmail account (`dcaccount_url`):** instead of supplying
+`address`/`password`, point a connector at a chatmail server's account-creation
+URL and the gateway provisions a fresh account on startup:
+
+```bash
+DELTA_CHAT_ACCOUNTS='[{"connector_id":"delta-client-1","dcaccount_url":"dcaccount:https://chat.example.org/new","cw_account_id":"1","cw_inbox_id":"5"}]'
+```
+
+The gateway POSTs to the URL (stripping the `dcaccount:` prefix) and expects a
+JSON `{email, password}` back, which it uses as the account credentials.
+`display_name`/`avatar_path` from the config still apply. Use either
+`dcaccount_url` **or** `address`+`password`, not both.
+
 **Migration mode:** set `ENABLE_NATIVE_DELTACHAT_CHANNEL=false` and add
 `"bridge_url":"http://deltawoot:5000"` to each account; start the legacy relay
 with `docker compose --profile legacy-deltachat up -d`.

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import httpx
+import structlog
 from channels.delta_chat_channel.dc_attachments import extract_delta_chat_attachments
 from channels.delta_chat_channel.dc_models import (
     DeltaChatAccountConfig,
@@ -14,6 +15,8 @@ from channels.delta_chat_channel.dc_models import (
 )
 from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
+
+logger = structlog.get_logger(__name__)
 
 
 class DeltaChatClient:
@@ -36,6 +39,7 @@ class DeltaChatClient:
         self._stop_event = threading.Event()
         self._lifecycle_lock = threading.Lock()
         self._event_threads: list[threading.Thread] = []
+        self._event_thread_connectors: set[str] = set()
 
     def set_new_message_handler(
         self, handler: Callable[[DeltaChatRuntimeAccount, dict[str, Any]], None]
@@ -103,10 +107,36 @@ class DeltaChatClient:
             for account in existing_accounts
             if account.get_config("addr")
         }
+        accounts_by_connector_id = {
+            str(account.get_config("ui.connector_id") or ""): account
+            for account in existing_accounts
+            if account.get_config("ui.connector_id")
+        }
 
         for config in self._settings.delta_chat_accounts:
-            effective_config = self._resolve_bootstrap_config(config)
-            account = self._ensure_account(effective_config, accounts_by_address)
+            existing = accounts_by_connector_id.get(config.connector_id)
+            reuse = bool(
+                config.dcaccount_url
+                and existing is not None
+                and existing.is_configured()
+            )
+            if reuse:
+                # A dcaccount_url mints a brand-new random address on every call,
+                # so provisioning must happen only once. On later boots reuse the
+                # already-configured account for this connector instead of minting
+                # (and re-configuring) a fresh one — which both loses the bot's
+                # identity and re-runs the slow mail-server login each start.
+                effective_config = config.model_copy(
+                    update={"address": str(existing.get_config("addr") or "")}
+                )
+                account = existing
+            else:
+                effective_config = self._resolve_bootstrap_config(config)
+                address = effective_config.address.strip().lower()
+                account = accounts_by_address.get(address)
+                if account is None:
+                    account = self._deltachat.add_account()
+
             runtime_account = DeltaChatRuntimeAccount(
                 connector_id=effective_config.connector_id,
                 account_id=account.id,
@@ -118,6 +148,36 @@ class DeltaChatClient:
             self._account_objects_by_connector_id[effective_config.connector_id] = account
             self._account_objects_by_account_id[account.id] = account
             self._routing.register_account_id(effective_config.connector_id, account.id)
+
+            # Start the event pump *before* configuring the transport so the
+            # core's ConfigureProgress / Warning / Error events are logged live.
+            # Otherwise a failing IMAP/SMTP login just blocks startup silently.
+            self._start_event_thread(runtime_account)
+
+            if reuse:
+                self._refresh_account_metadata(account, effective_config)
+                logger.info(
+                    "Delta Chat account reused",
+                    connector_id=effective_config.connector_id,
+                    address=effective_config.address,
+                )
+                continue
+
+            logger.info(
+                "Delta Chat configuring account transport",
+                connector_id=effective_config.connector_id,
+                address=effective_config.address,
+            )
+            account.add_or_update_transport(
+                {"addr": effective_config.address, "password": effective_config.password}
+            )
+            self._refresh_account_metadata(account, effective_config)
+            logger.info(
+                "Delta Chat account configured",
+                connector_id=effective_config.connector_id,
+                address=effective_config.address,
+                is_configured=account.is_configured(),
+            )
 
     def _resolve_bootstrap_config(self, config: DeltaChatAccountConfig) -> DeltaChatAccountConfig:
         if not config.dcaccount_url:
@@ -167,12 +227,18 @@ class DeltaChatClient:
 
     def _load_dcaccount_credentials(self, dcaccount_url: str) -> dict[str, Any]:
         url = dcaccount_url.strip()
-        if url.startswith("dcaccount:"):
+        # The DCACCOUNT QR/URL is "DCACCOUNT:<https url>" (case-insensitive);
+        # the real chatmail endpoint is the inner https URL.
+        if url.lower().startswith("dcaccount:"):
             url = url[len("dcaccount:") :]
         if not url:
             raise ValueError("dcaccount_url is empty")
 
-        response = httpx.get(url, timeout=15.0, follow_redirects=True)
+        # chatmail account creation is a POST to /new that returns
+        # {"email", "password"} as JSON. A GET instead returns a 301 whose
+        # Location is the "dcaccount:" QR string (meant for a Delta Chat app),
+        # which is not a followable HTTP URL — so POST and don't chase redirects.
+        response = httpx.post(url, timeout=15.0, follow_redirects=False)
         response.raise_for_status()
         try:
             payload = response.json()
@@ -184,23 +250,11 @@ class DeltaChatClient:
             raise ValueError(f"dcaccount_url must return a JSON object: {url}")
         return payload
 
-    def _ensure_account(
-        self,
-        config: DeltaChatAccountConfig,
-        accounts_by_address: dict[str, Any],
+    def _refresh_account_metadata(
+        self, account: Any, config: DeltaChatAccountConfig
     ) -> Any:
-        if self._deltachat is None:
-            raise RuntimeError("Delta Chat client not started")
-
-        address = config.address.strip().lower()
-        account = accounts_by_address.get(address)
-        if account is None:
-            account = self._deltachat.add_account()
-
-        account.add_or_update_transport(
-            {"addr": config.address, "password": config.password}
-        )
-
+        """Apply display/ui config to an account without (re)configuring its
+        transport — safe to call for an already-configured account."""
         account.set_config("displayname", config.display_name or config.address)
         if config.avatar_path:
             account.set_avatar(config.avatar_path)
@@ -241,7 +295,7 @@ class DeltaChatClient:
         self, handler: Callable[[DeltaChatRuntimeAccount, dict[str, Any]], None]
     ) -> None:
         self._new_message_handler = handler
-        if self._deltachat is not None and not self._event_threads:
+        if self._deltachat is not None:
             self._start_event_threads()
 
     @property
@@ -251,30 +305,41 @@ class DeltaChatClient:
         return self._new_message_handler
 
     def _start_event_threads(self) -> None:
-        if self._new_message_handler is None:
-            return
-
         for runtime_account in self._accounts_by_connector_id.values():
-            thread = threading.Thread(
-                target=self._event_loop,
-                args=(runtime_account,),
-                daemon=True,
-                name=f"deltachat-events-{runtime_account.connector_id}",
-            )
-            thread.start()
-            self._event_threads.append(thread)
+            self._start_event_thread(runtime_account)
+
+    def _start_event_thread(self, runtime_account: DeltaChatRuntimeAccount) -> None:
+        if runtime_account.connector_id in self._event_thread_connectors:
+            return
+        self._event_thread_connectors.add(runtime_account.connector_id)
+        thread = threading.Thread(
+            target=self._event_loop,
+            args=(runtime_account,),
+            daemon=True,
+            name=f"deltachat-events-{runtime_account.connector_id}",
+        )
+        thread.start()
+        self._event_threads.append(thread)
 
     def _event_loop(self, runtime_account: DeltaChatRuntimeAccount) -> None:
         while not self._stop_event.is_set():
             try:
                 account = self.get_account(runtime_account.connector_id)
-                event = account.wait_for_incoming_msg_event()
+                event = account.wait_for_event()
             except Exception:
                 if self._stop_event.is_set():
                     return
                 continue
 
-            if self._stop_event.is_set() or self._new_message_handler is None:
+            if self._stop_event.is_set():
+                continue
+
+            kind = str(getattr(event, "kind", "") or "")
+            if kind != "IncomingMsg":
+                self._log_core_event(runtime_account.connector_id, kind, event)
+                continue
+
+            if self._new_message_handler is None:
                 continue
 
             try:
@@ -316,6 +381,41 @@ class DeltaChatClient:
                 self._new_message_handler(runtime_account, payload)
             except Exception:
                 continue
+
+    def _log_core_event(self, connector_id: str, kind: str, event: Any) -> None:
+        """Surface Delta Chat core lifecycle events so configuration/connection
+        problems are visible instead of silently blocking startup."""
+        if kind == "Error":
+            logger.error(
+                "Delta Chat core error",
+                connector_id=connector_id,
+                msg=getattr(event, "msg", None),
+            )
+        elif kind == "Warning":
+            logger.warning(
+                "Delta Chat core warning",
+                connector_id=connector_id,
+                msg=getattr(event, "msg", None),
+            )
+        elif kind == "ConfigureProgress":
+            logger.info(
+                "Delta Chat configure progress",
+                connector_id=connector_id,
+                progress=getattr(event, "progress", None),
+                comment=getattr(event, "comment", None),
+            )
+        elif kind in ("ConnectivityChanged", "ImapConnected", "ImapInboxIdle"):
+            logger.info(
+                "Delta Chat connectivity event",
+                connector_id=connector_id,
+                kind=kind,
+            )
+        elif kind == "Info":
+            logger.debug(
+                "Delta Chat core info",
+                connector_id=connector_id,
+                msg=getattr(event, "msg", None),
+            )
 
     def _wait_for_full_message(
         self,
