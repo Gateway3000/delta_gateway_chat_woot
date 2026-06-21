@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from pathlib import Path
 from typing import Any, Callable
 
+import httpx
 from channels.delta_chat_channel.dc_attachments import extract_delta_chat_attachments
 from channels.delta_chat_channel.dc_models import (
     DeltaChatAccountConfig,
@@ -103,18 +105,84 @@ class DeltaChatClient:
         }
 
         for config in self._settings.delta_chat_accounts:
-            account = self._ensure_account(config, accounts_by_address)
+            effective_config = self._resolve_bootstrap_config(config)
+            account = self._ensure_account(effective_config, accounts_by_address)
             runtime_account = DeltaChatRuntimeAccount(
-                connector_id=config.connector_id,
+                connector_id=effective_config.connector_id,
                 account_id=account.id,
-                address=config.address,
-                storage_dir=self._resolved_storage_dir(config),
+                address=effective_config.address,
+                storage_dir=self._resolved_storage_dir(effective_config),
             )
-            self._accounts_by_connector_id[config.connector_id] = runtime_account
+            self._accounts_by_connector_id[effective_config.connector_id] = runtime_account
             self._accounts_by_account_id[account.id] = runtime_account
-            self._account_objects_by_connector_id[config.connector_id] = account
+            self._account_objects_by_connector_id[effective_config.connector_id] = account
             self._account_objects_by_account_id[account.id] = account
-            self._routing.register_account_id(config.connector_id, account.id)
+            self._routing.register_account_id(effective_config.connector_id, account.id)
+
+    def _resolve_bootstrap_config(self, config: DeltaChatAccountConfig) -> DeltaChatAccountConfig:
+        if not config.dcaccount_url:
+            return config
+
+        credentials = self._load_dcaccount_credentials(config.dcaccount_url)
+        address = str(
+            credentials.get("address")
+            or credentials.get("addr")
+            or credentials.get("username")
+            or credentials.get("email")
+            or config.address
+            or ""
+        ).strip()
+        password = str(
+            credentials.get("password")
+            or credentials.get("pass")
+            or credentials.get("mail_pw")
+            or config.password
+            or ""
+        )
+        if not address or not password:
+            raise ValueError(
+                f"dcaccount_url for connector_id={config.connector_id} did not return address/password"
+            )
+
+        display_name = str(
+            credentials.get("display_name")
+            or credentials.get("displayname")
+            or credentials.get("name")
+            or config.display_name
+            or ""
+        ).strip() or None
+
+        avatar_path = config.avatar_path
+        if isinstance(credentials.get("avatar_path"), str) and credentials["avatar_path"].strip():
+            avatar_path = str(credentials["avatar_path"]).strip()
+
+        return config.model_copy(
+            update={
+                "address": address,
+                "password": password,
+                "display_name": display_name,
+                "avatar_path": avatar_path,
+            }
+        )
+
+    def _load_dcaccount_credentials(self, dcaccount_url: str) -> dict[str, Any]:
+        url = dcaccount_url.strip()
+        if url.startswith("dcaccount:"):
+            url = url[len("dcaccount:") :]
+        if not url:
+            raise ValueError("dcaccount_url is empty")
+
+        response = httpx.get(url, timeout=15.0, follow_redirects=True)
+        response.raise_for_status()
+        try:
+            payload = response.json()
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"dcaccount_url did not return valid JSON: {url}") from exc
+        if isinstance(payload, dict) and isinstance(payload.get("payload"), dict):
+            payload = payload["payload"]
+        if not isinstance(payload, dict):
+            raise ValueError(f"dcaccount_url must return a JSON object: {url}")
+        return payload
 
     def _ensure_account(
         self,
