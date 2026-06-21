@@ -6,7 +6,7 @@ import uvicorn
 
 from multichannel_gateway import Environment
 from src.multichannel_gateway.app.utils import wait_until_database_ready
-from src.multichannel_gateway.app.wiring import settings, pgmq, registry
+from src.multichannel_gateway.app.wiring import settings, pgmq, registry, alias_store
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ async def prepare_app() -> None:
     prefork_tasks = asyncio.create_task(registry.on_prefork())
     ensure_db_task = asyncio.create_task(wait_until_database_ready(pgmq))
     await asyncio.gather(prefork_tasks, ensure_db_task)
+    await alias_store.ensure_table()
 
 
 def run() -> None:

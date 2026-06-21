@@ -50,7 +50,7 @@ async def handle_channel_payload(
 async def handle_chatwoot_payload(
     channel: str, cw_account_id: str, payload: dict[str, Any]
 ) -> Response | None:
-    from src.multichannel_gateway.app.wiring import registry
+    from src.multichannel_gateway.app.wiring import alias_store, registry, settings
 
     with tracer.start_as_current_span("webhook.chatwoot_to_channel") as span:
         set_span_attributes(
@@ -61,16 +61,29 @@ async def handle_chatwoot_payload(
         if payload.get("message_type") == "outgoing":
             try:
                 identifier = payload["conversation"]["meta"]["sender"]["identifier"]
-                # Contact identifiers are channel-prefixed (e.g. "simplex_3").
-                # Route by that prefix rather than the channel in the webhook
-                # URL, so a single Chatwoot account webhook serves every channel
-                # and replies never land on the wrong transport.
-                target_channel = _resolve_outgoing_channel(
-                    identifier, channel, registry
-                )
-                payload["conversation"]["meta"]["sender"]["identifier"] = (
-                    IEnvelopeFactory._strip_channel_prefix(identifier, target_channel)
-                )
+
+                if settings.anonymize_users:
+                    # Identifier is an opaque alias — resolve it back to real_id.
+                    # Channel comes from the webhook URL (no prefix to detect from).
+                    real_id = await alias_store.resolve_alias(identifier)
+                    if real_id is None:
+                        raise ConnectorNotFoundError(
+                            f"Unknown alias: {identifier}"
+                        )
+                    payload["conversation"]["meta"]["sender"]["identifier"] = real_id
+                    target_channel = channel
+                else:
+                    # Contact identifiers are channel-prefixed (e.g. "simplex_3").
+                    # Route by that prefix rather than the channel in the webhook
+                    # URL, so a single Chatwoot account webhook serves every channel
+                    # and replies never land on the wrong transport.
+                    target_channel = _resolve_outgoing_channel(
+                        identifier, channel, registry
+                    )
+                    payload["conversation"]["meta"]["sender"]["identifier"] = (
+                        IEnvelopeFactory._strip_channel_prefix(identifier, target_channel)
+                    )
+
                 channel_ = registry.get_channel(target_channel)
                 await channel_.publish_chatwoot_message(payload, cw_account_id)
                 mark_span_ok(span)
