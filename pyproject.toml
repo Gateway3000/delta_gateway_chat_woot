@@ -41,6 +41,8 @@ imessage = "channels.imessage_channel:imessage_channel"
 signal = "channels.signal_channel:signal_channel"
 whatsapp = "channels.whatsapp_channel.wa_wiring:whatsapp_channel"
 deltachat = "channels.delta_chat_channel.dc_wiring:delta_chat_channel"
+session = "channels.session_channel.session_wiring:session_channel"
+simplex = "channels.simplex_channel:simplex_channel"
 
 [project.optional-dependencies]
 sentry = ["sentry-sdk[opentelemetry-otlp]==2.56.0"]

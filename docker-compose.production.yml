@@ -24,3 +24,8 @@ services:
   wa-sidecar-1:
     networks:
       gateway:
+
+  session-bridge:
+    networks:
+      gateway:
+
