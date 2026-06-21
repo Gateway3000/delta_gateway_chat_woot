@@ -1,0 +1,14 @@
+{
+  "name": "session-webhook-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/main.ts"
+  },
+  "dependencies": {
+    "@session.js/client": "latest",
+    "@session.js/errors": "latest",
+    "@session.js/types": "latest"
+  }
+}

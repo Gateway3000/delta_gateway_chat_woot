@@ -12,6 +12,7 @@ services:
       - db
       - signal-bridge
       - wa-sidecar-1
+      - session-bridge
     env_file: .env
 
   # signal-bridge fronts the Signal account: a small presage-based daemon that
@@ -77,3 +78,15 @@ services:
       PAIR_NUMBER: ${WA1_PAIR_NUMBER:-}
     volumes:
       - wa1_auth:/data/auth
+
+  session-bridge:
+    build:
+      context: ./session
+    image: session-bridge:latest
+    restart: unless-stopped
+    container_name: session-bridge
+    environment:
+      SESSION_MNEMONIC: ${SESSION_MNEMONIC}
+      SESSION_WEBHOOK_URL: http://gateway:8000/ingest/incoming/session/session1/webhook
+      HOST: 0.0.0.0
+      PORT: "8080"
