@@ -2,6 +2,7 @@ volumes:
   pgmq:
   signal-data:
   wa1_auth:
+  simplex-data:
 
 services:
   app:
@@ -13,6 +14,7 @@ services:
       - signal-bridge
       - wa-sidecar-1
       - session-bridge
+      - simplex-chat
     env_file: .env
 
   # signal-bridge fronts the Signal account: a small presage-based daemon that
@@ -41,6 +43,31 @@ services:
       SIGNAL_SERVERS: production
     volumes:
       - signal-data:/data
+
+  # simplex-chat fronts the SimpleX bot: the official CLI run as a WebSocket
+  # server, with a socat shim exposing its localhost-only port on the network.
+  # The gateway's SimpleX connector connects to it in-network at
+  # ws://simplex-chat:5225 (ws_url in SIMPLEX_CONFIG). The profile db lives in
+  # the simplex-data volume.
+  #
+  # First-time setup (create the bot profile once, then Ctrl-D):
+  #   docker compose run --rm --entrypoint simplex-chat simplex-chat -d /data/simplex
+  # The connector auto-creates the bot address + enables auto-accept on connect;
+  # the address is logged so you can share it for users to connect.
+  simplex-chat:
+    build:
+      context: ./simplex-service
+    image: simplex-chat:latest
+    restart: unless-stopped
+    container_name: simplex-chat
+    # Published to the host so a gateway running outside this compose network
+    # can reach it at ws://host.docker.internal:5225 (the ws_url in
+    # SIMPLEX_CONFIG). If the gateway shares this network, switch ws_url to
+    # ws://simplex-chat:5225 and change this to `expose: ["5225"]`.
+    ports:
+      - "5225:5225"
+    volumes:
+      - simplex-data:/data
 
   db:
     image: "ghcr.io/pgmq/pg${POSTGRES_VERSION}-pgmq:${PGMQ_VERSION}"

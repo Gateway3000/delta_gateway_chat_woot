@@ -6,6 +6,7 @@ from src.multichannel_gateway.app.workers import (
 )
 from src.multichannel_gateway.infrastructure import (
     ChatwootClient,
+    ContactAliasStore,
     ConnManager,
     ChannelRegistry,
     HTTPSessionManager,
@@ -25,9 +26,11 @@ cwc: ChatwootClient = ChatwootClient(
     settings.chatwoot_access_token, settings.chatwoot_base_url, cw_session_manager
 )
 
+alias_store: ContactAliasStore = ContactAliasStore(conn_manager)
+
 registry: ChannelRegistry = ChannelRegistry()
 channel_to_chatwoot_orchestrator: ChannelToChatwootOrchestrator = (
-    ChannelToChatwootOrchestrator(registry, settings.anonymize_users)
+    ChannelToChatwootOrchestrator(registry, settings.anonymize_users, alias_store)
 )
 
 channel_to_cw_worker: ChannelToChatwootWorker = ChannelToChatwootWorker(
