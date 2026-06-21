@@ -153,6 +153,40 @@ def test_full_message_wait_returns_as_soon_as_file_is_available() -> None:
     assert result["file"] == "/data/deltachat/blob/audio.ogg"
 
 
+def test_dcaccount_url_bootstrap_resolves_credentials(monkeypatch) -> None:
+    client, _ = _build_client()
+
+    class _Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, str]:
+            return {
+                "address": "bootstrap@example.org",
+                "password": "bootstrap-secret",
+                "display_name": "Bootstrap Bot",
+            }
+
+    monkeypatch.setattr(
+        "channels.delta_chat_channel.dc_client.httpx.get",
+        lambda *_args, **_kwargs: _Response(),
+    )
+    config = DeltaChatAccountConfig(
+        connector_id="delta-bootstrap",
+        address="",
+        password="",
+        dcaccount_url="dcaccount:https://example.org/new",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+
+    resolved = client._resolve_bootstrap_config(config)
+
+    assert resolved.address == "bootstrap@example.org"
+    assert resolved.password == "bootstrap-secret"
+    assert resolved.display_name == "Bootstrap Bot"
+
+
 def test_own_messages_are_ignored() -> None:
     client, runtime_account = _build_client()
     stop_event = client._stop_event
