@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field
 
 class DeltaChatAccountConfig(BaseModel):
     connector_id: str
-    address: str
-    password: str
+    address: str = ""
+    password: str = ""
+    dcaccount_url: str | None = None
     display_name: str | None = None
     avatar_path: str | None = None
     bridge_url: str | None = None

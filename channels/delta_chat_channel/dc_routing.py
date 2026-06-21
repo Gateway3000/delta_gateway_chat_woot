@@ -31,6 +31,7 @@ class DeltaChatRouting:
             "connector_id": cfg.connector_id,
             "address": cfg.address,
             "password": cfg.password,
+            "dcaccount_url": cfg.dcaccount_url or "",
             "display_name": cfg.display_name or "",
             "avatar_path": cfg.avatar_path or "",
             "bridge_url": cfg.bridge_url or "",
@@ -44,4 +45,3 @@ class DeltaChatRouting:
             if cfg.cw_inbox_id == inbox_id:
                 return self.get_route_by_connector_id(connector_id)
         raise ConnectorNotFoundError(f"Unknown cw_inbox_id={inbox_id}")
-
