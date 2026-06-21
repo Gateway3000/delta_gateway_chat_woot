@@ -77,6 +77,11 @@ class ChannelRegistry:
             raise ValueError(f"Channel '{channel}' not found")
         return self._channels[channel]
 
+    @property
+    def channel_names(self) -> list[str]:
+        """Names of all registered channels."""
+        return list(self._channels.keys())
+
     async def on_startup(self) -> None:
         """Performs startup tasks for all registered channels during FastAPI lifespan.
 
