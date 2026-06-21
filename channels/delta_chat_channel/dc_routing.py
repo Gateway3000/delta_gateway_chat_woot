@@ -32,6 +32,7 @@ class DeltaChatRouting:
             "address": cfg.address,
             "password": cfg.password,
             "dcaccount_url": cfg.dcaccount_url or "",
+            "bootstrap_qr": cfg.bootstrap_qr or "",
             "display_name": cfg.display_name or "",
             "avatar_path": cfg.avatar_path or "",
             "bridge_url": cfg.bridge_url or "",

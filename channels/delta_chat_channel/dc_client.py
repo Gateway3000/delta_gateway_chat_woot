@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from pathlib import Path
@@ -14,6 +15,8 @@ from channels.delta_chat_channel.dc_models import (
 )
 from channels.delta_chat_channel.dc_routing import DeltaChatRouting
 from channels.delta_chat_channel.dc_settings import DeltaChatSettings
+
+logger = logging.getLogger(__name__)
 
 
 class DeltaChatClient:
@@ -98,108 +101,58 @@ class DeltaChatClient:
             raise RuntimeError("Delta Chat client not started")
 
         existing_accounts = self._deltachat.get_all_accounts()
-        accounts_by_address = {
-            str(account.get_config("addr") or "").strip().lower(): account
-            for account in existing_accounts
-            if account.get_config("addr")
-        }
+        used_account_ids: set[int] = set()
 
         for config in self._settings.delta_chat_accounts:
-            effective_config = self._resolve_bootstrap_config(config)
-            account = self._ensure_account(effective_config, accounts_by_address)
-            runtime_account = DeltaChatRuntimeAccount(
-                connector_id=effective_config.connector_id,
-                account_id=account.id,
-                address=effective_config.address,
-                storage_dir=self._resolved_storage_dir(effective_config),
-            )
-            self._accounts_by_connector_id[effective_config.connector_id] = runtime_account
-            self._accounts_by_account_id[account.id] = runtime_account
-            self._account_objects_by_connector_id[effective_config.connector_id] = account
-            self._account_objects_by_account_id[account.id] = account
-            self._routing.register_account_id(effective_config.connector_id, account.id)
+            try:
+                effective_config = self._resolve_bootstrap_config(config)
+                account = self._ensure_account(effective_config, existing_accounts)
+                used_account_ids.add(account.id)
+                runtime_address = str(account.get_config("addr") or effective_config.address or "")
+                runtime_account = DeltaChatRuntimeAccount(
+                    connector_id=effective_config.connector_id,
+                    account_id=account.id,
+                    address=runtime_address,
+                    storage_dir=self._resolved_storage_dir(effective_config),
+                )
+                self._accounts_by_connector_id[effective_config.connector_id] = runtime_account
+                self._accounts_by_account_id[account.id] = runtime_account
+                self._account_objects_by_connector_id[effective_config.connector_id] = account
+                self._account_objects_by_account_id[account.id] = account
+                self._routing.register_account_id(effective_config.connector_id, account.id)
+            except Exception:
+                logger.exception(
+                    "Failed to initialize Delta Chat account",
+                    extra={"connector_id": config.connector_id},
+                )
+                continue
+
+        self._prune_stale_accounts(existing_accounts, used_account_ids)
 
     def _resolve_bootstrap_config(self, config: DeltaChatAccountConfig) -> DeltaChatAccountConfig:
-        if not config.dcaccount_url:
+        bootstrap_qr = (config.dcaccount_url or "").strip()
+        if not bootstrap_qr:
             return config
-
-        credentials = self._load_dcaccount_credentials(config.dcaccount_url)
-        address = str(
-            credentials.get("address")
-            or credentials.get("addr")
-            or credentials.get("username")
-            or credentials.get("email")
-            or config.address
-            or ""
-        ).strip()
-        password = str(
-            credentials.get("password")
-            or credentials.get("pass")
-            or credentials.get("mail_pw")
-            or config.password
-            or ""
-        )
-        if not address or not password:
-            raise ValueError(
-                f"dcaccount_url for connector_id={config.connector_id} did not return address/password"
-            )
-
-        display_name = str(
-            credentials.get("display_name")
-            or credentials.get("displayname")
-            or credentials.get("name")
-            or config.display_name
-            or ""
-        ).strip() or None
-
-        avatar_path = config.avatar_path
-        if isinstance(credentials.get("avatar_path"), str) and credentials["avatar_path"].strip():
-            avatar_path = str(credentials["avatar_path"]).strip()
-
-        return config.model_copy(
-            update={
-                "address": address,
-                "password": password,
-                "display_name": display_name,
-                "avatar_path": avatar_path,
-            }
-        )
-
-    def _load_dcaccount_credentials(self, dcaccount_url: str) -> dict[str, Any]:
-        url = dcaccount_url.strip()
-        if url.startswith("dcaccount:"):
-            url = url[len("dcaccount:") :]
-        if not url:
-            raise ValueError("dcaccount_url is empty")
-
-        response = httpx.get(url, timeout=15.0, follow_redirects=True)
-        response.raise_for_status()
-        try:
-            payload = response.json()
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"dcaccount_url did not return valid JSON: {url}") from exc
-        if isinstance(payload, dict) and isinstance(payload.get("payload"), dict):
-            payload = payload["payload"]
-        if not isinstance(payload, dict):
-            raise ValueError(f"dcaccount_url must return a JSON object: {url}")
-        return payload
+        return config.model_copy(update={"bootstrap_qr": bootstrap_qr})
 
     def _ensure_account(
         self,
         config: DeltaChatAccountConfig,
-        accounts_by_address: dict[str, Any],
+        existing_accounts: list[Any],
     ) -> Any:
         if self._deltachat is None:
             raise RuntimeError("Delta Chat client not started")
 
-        address = config.address.strip().lower()
-        account = accounts_by_address.get(address)
+        account = self._find_existing_account(config, existing_accounts)
         if account is None:
             account = self._deltachat.add_account()
 
-        account.add_or_update_transport(
-            {"addr": config.address, "password": config.password}
-        )
+        if config.bootstrap_qr:
+            account.set_config_from_qr(config.bootstrap_qr)
+        else:
+            account.add_or_update_transport(
+                {"addr": config.address, "password": config.password}
+            )
 
         account.set_config("displayname", config.display_name or config.address)
         if config.avatar_path:
@@ -209,6 +162,49 @@ class DeltaChatClient:
         account.set_config("ui.cw_inbox_id", config.cw_inbox_id)
         account.set_config("ui.storage_dir", self._resolved_storage_dir(config))
         return account
+
+    def _find_existing_account(
+        self,
+        config: DeltaChatAccountConfig,
+        existing_accounts: list[Any],
+    ) -> Any | None:
+        connector_id = config.connector_id.strip().lower()
+        storage_dir = self._resolved_storage_dir(config).strip().lower()
+        address = config.address.strip().lower()
+        for account in existing_accounts:
+            existing_connector = str(account.get_config("ui.connector_id") or "").strip().lower()
+            existing_storage = str(account.get_config("ui.storage_dir") or "").strip().lower()
+            existing_addr = str(account.get_config("addr") or "").strip().lower()
+            if existing_connector and existing_connector == connector_id:
+                return account
+            if existing_storage and existing_storage == storage_dir:
+                return account
+            if address and existing_addr and existing_addr == address:
+                return account
+        return None
+
+    def _prune_stale_accounts(self, existing_accounts: list[Any], used_account_ids: set[int]) -> None:
+        for account in existing_accounts:
+            if account.id in used_account_ids:
+                continue
+            try:
+                logger.info(
+                    "Removing stale Delta Chat account",
+                    extra={
+                        "account_id": account.id,
+                        "connector_id": str(account.get_config("ui.connector_id") or ""),
+                        "address": str(account.get_config("addr") or ""),
+                    },
+                )
+                account.remove()
+            except Exception:
+                logger.exception(
+                    "Failed to remove stale Delta Chat account",
+                    extra={
+                        "account_id": account.id,
+                        "connector_id": str(account.get_config("ui.connector_id") or ""),
+                    },
+                )
 
     def _resolved_storage_dir(self, config: DeltaChatAccountConfig) -> str:
         if config.storage_dir:

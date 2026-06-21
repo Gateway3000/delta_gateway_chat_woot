@@ -153,28 +153,10 @@ def test_full_message_wait_returns_as_soon_as_file_is_available() -> None:
     assert result["file"] == "/data/deltachat/blob/audio.ogg"
 
 
-def test_dcaccount_url_bootstrap_resolves_credentials(monkeypatch) -> None:
+def test_dcaccount_url_bootstrap_preserves_qr() -> None:
     client, _ = _build_client()
-
-    class _Response:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict[str, str]:
-            return {
-                "address": "bootstrap@example.org",
-                "password": "bootstrap-secret",
-                "display_name": "Bootstrap Bot",
-            }
-
-    monkeypatch.setattr(
-        "channels.delta_chat_channel.dc_client.httpx.get",
-        lambda *_args, **_kwargs: _Response(),
-    )
     config = DeltaChatAccountConfig(
         connector_id="delta-bootstrap",
-        address="",
-        password="",
         dcaccount_url="dcaccount:https://example.org/new",
         cw_account_id="1",
         cw_inbox_id="5",
@@ -182,9 +164,25 @@ def test_dcaccount_url_bootstrap_resolves_credentials(monkeypatch) -> None:
 
     resolved = client._resolve_bootstrap_config(config)
 
-    assert resolved.address == "bootstrap@example.org"
-    assert resolved.password == "bootstrap-secret"
-    assert resolved.display_name == "Bootstrap Bot"
+    assert resolved.bootstrap_qr == "dcaccount:https://example.org/new"
+    assert resolved.dcaccount_url == "dcaccount:https://example.org/new"
+    assert resolved.address == ""
+    assert resolved.password == ""
+
+
+def test_dcaccount_html_page_with_dcaccount_link_preserves_qr() -> None:
+    client, _ = _build_client()
+    config = DeltaChatAccountConfig(
+        connector_id="delta-html",
+        dcaccount_url="dcaccount:https://chat.gluek.info",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+
+    resolved = client._resolve_bootstrap_config(config)
+
+    assert resolved.bootstrap_qr == "dcaccount:https://chat.gluek.info"
+    assert resolved.dcaccount_url == "dcaccount:https://chat.gluek.info"
 
 
 def test_own_messages_are_ignored() -> None:
@@ -269,6 +267,10 @@ class _PersistentAccount:
 
     def _persist(self) -> None:
         return None
+
+    def remove(self) -> None:
+        self._configured = False
+        self._config["removed"] = "1"
 
 
 class _PersistentDeltaChat:
@@ -368,3 +370,48 @@ def test_connector_mapping_survives_restart(monkeypatch, tmp_path) -> None:
     assert second_client.get_runtime_account_by_account_id(first_account_id).connector_id == "delta-client-1"
     assert second_client.get_runtime_account_by_account_id(second_account_id).connector_id == "delta-client-2"
     second_client.stop()
+
+
+def test_stale_accounts_are_removed(monkeypatch) -> None:
+    class _RemoveAccount(_PersistentAccount):
+        def __init__(self, storage_dir: str, account_id: int, address: str | None) -> None:
+            super().__init__(storage_dir, account_id, address)
+            self.removed = False
+
+        def remove(self) -> None:
+            self.removed = True
+
+    class _PruneDeltaChat(_PersistentDeltaChat):
+        def __init__(self, rpc: object) -> None:
+            self._storage_dir = getattr(rpc, "accounts_dir")
+            self._accounts_file = f"{self._storage_dir}/accounts.json"
+            self._accounts = [
+                _RemoveAccount(self._storage_dir, 1, "keep@example.org"),
+                _RemoveAccount(self._storage_dir, 2, "drop@example.org"),
+            ]
+
+    fake_module = SimpleNamespace(Rpc=_PersistentRpc, DeltaChat=_PruneDeltaChat)
+    monkeypatch.setitem(sys.modules, "deltachat_rpc_client", fake_module)
+
+    keep_config = DeltaChatAccountConfig(
+        connector_id="delta-client-1",
+        address="keep@example.org",
+        password="secret",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[keep_config],
+        deltachat_accounts_dir="/tmp/deltachat",
+        enable_native_deltachat_channel=True,
+    )
+    routing = DeltaChatRouting(settings.delta_chat_accounts)
+    client = DeltaChatClient(settings, routing)
+    client.start()
+
+    accounts = client._deltachat.get_all_accounts()
+    assert isinstance(accounts[0], _RemoveAccount)
+    assert isinstance(accounts[1], _RemoveAccount)
+    assert accounts[0].removed is False
+    assert accounts[1].removed is True
+    client.stop()

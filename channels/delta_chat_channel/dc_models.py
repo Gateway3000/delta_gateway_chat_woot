@@ -10,6 +10,7 @@ class DeltaChatAccountConfig(BaseModel):
     address: str = ""
     password: str = ""
     dcaccount_url: str | None = None
+    bootstrap_qr: str | None = None
     display_name: str | None = None
     avatar_path: str | None = None
     bridge_url: str | None = None
