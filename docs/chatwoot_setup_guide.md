@@ -1,7 +1,7 @@
 After following the standard login procedure go to settings -> inboxes.
 
-![Settings inboxes menu](imgs/Screenshot%202026-06-21%20at%2015.35.59%201.png)
-![Inboxes page](imgs/Screenshot%202026-06-21%20at%2015.36.19%202.png)
+![Settings inboxes menu](imgs/Screenshot%202026-06-21%20at%2015.35.59.png)
+![Inboxes page](imgs/Screenshot%202026-06-21%20at%2015.36.19.png)
 
 For each of the channels you want to use click "Add Inbox" -> "API"
 
