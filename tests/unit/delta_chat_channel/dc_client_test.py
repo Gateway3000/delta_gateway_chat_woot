@@ -273,6 +273,20 @@ class _PersistentAccount:
         self._config["removed"] = "1"
 
 
+class _BootstrapAccount(_PersistentAccount):
+    def __init__(self, storage_dir: str, account_id: int, address: str | None) -> None:
+        super().__init__(storage_dir, account_id, address)
+        self.bootstrap_calls = 0
+        self.transport_updates = 0
+
+    def set_config_from_qr(self, _bootstrap_qr: str) -> None:
+        self.bootstrap_calls += 1
+
+    def add_or_update_transport(self, config: dict[str, str]) -> None:
+        self.transport_updates += 1
+        super().add_or_update_transport(config)
+
+
 class _PersistentDeltaChat:
     def __init__(self, rpc: object) -> None:
         self._storage_dir = getattr(rpc, "accounts_dir")
@@ -414,4 +428,42 @@ def test_stale_accounts_are_removed(monkeypatch) -> None:
     assert isinstance(accounts[1], _RemoveAccount)
     assert accounts[0].removed is False
     assert accounts[1].removed is True
+    client.stop()
+
+
+def test_existing_configured_account_is_not_rebootstraped(monkeypatch, tmp_path) -> None:
+    class _ConfiguredDeltaChat(_PersistentDeltaChat):
+        def __init__(self, rpc: object) -> None:
+            self._storage_dir = getattr(rpc, "accounts_dir")
+            self._accounts_file = f"{self._storage_dir}/accounts.json"
+            account = _BootstrapAccount(self._storage_dir, 1, "bot@example.org")
+            account._configured = True
+            account._config["ui.connector_id"] = "delta-client-1"
+            account._config["ui.storage_dir"] = (
+                f"{self._storage_dir}/delta-client-1"
+            )
+            self._accounts = [account]
+
+    fake_module = SimpleNamespace(Rpc=_PersistentRpc, DeltaChat=_ConfiguredDeltaChat)
+    monkeypatch.setitem(sys.modules, "deltachat_rpc_client", fake_module)
+
+    config = DeltaChatAccountConfig(
+        connector_id="delta-client-1",
+        dcaccount_url="dcaccount:https://chat.gluek.info/new",
+        cw_account_id="1",
+        cw_inbox_id="5",
+    )
+    settings = DeltaChatSettings(
+        delta_chat_accounts=[config],
+        deltachat_accounts_dir=str(tmp_path / "deltachat"),
+        enable_native_deltachat_channel=True,
+    )
+    routing = DeltaChatRouting(settings.delta_chat_accounts)
+    client = DeltaChatClient(settings, routing)
+    client.start()
+
+    account = client.get_account("delta-client-1")
+    assert isinstance(account, _BootstrapAccount)
+    assert account.bootstrap_calls == 0
+    assert account.transport_updates == 0
     client.stop()

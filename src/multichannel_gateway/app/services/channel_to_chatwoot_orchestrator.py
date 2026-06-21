@@ -21,7 +21,8 @@ class ChannelToChatwootOrchestrator:
         idempotency_key, envelope = await channel.build_channel_message(raw_data)
 
         raw_id = envelope.sender.external_id
-        envelope.sender.raw_external_id = raw_id
+        if envelope.sender.raw_external_id in (None, ""):
+            envelope.sender.raw_external_id = raw_id
 
         if self._anonymize_users:
             envelope.sender.external_id = await self._alias_store.get_or_create_alias(

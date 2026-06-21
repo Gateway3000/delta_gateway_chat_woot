@@ -146,13 +146,13 @@ class DeltaChatClient:
         account = self._find_existing_account(config, existing_accounts)
         if account is None:
             account = self._deltachat.add_account()
-
-        if config.bootstrap_qr:
-            account.set_config_from_qr(config.bootstrap_qr)
-        else:
-            account.add_or_update_transport(
-                {"addr": config.address, "password": config.password}
-            )
+        if not account.is_configured():
+            if config.bootstrap_qr:
+                account.set_config_from_qr(config.bootstrap_qr)
+            else:
+                account.add_or_update_transport(
+                    {"addr": config.address, "password": config.password}
+                )
 
         account.set_config("displayname", config.display_name or config.address)
         if config.avatar_path:
