@@ -1,14 +1,68 @@
 volumes:
   pgmq:
+  signal-data:
+  wa1_auth:
+  deltawoot_data:
+  deltachat_data:
 
 services:
   app:
+    build:
+      context: .
+      dockerfile: build/app/Dockerfile
     image: channel-gateway:latest
     restart: unless-stopped
     container_name: gateway
     depends_on:
       - db
+      - signal-bridge
     env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - deltachat_data:/data/deltachat
+
+  # signal-bridge fronts the Signal account: a small presage-based daemon that
+  # speaks newline-delimited JSON over TCP. The gateway's Signal connector
+  # connects to it in-network at signal-bridge:8080 (host/port in
+  # SIGNAL_BOTS_CONFIG) — no port needs to be published to the host.
+  #
+  # Link the account once before first use (renders a QR / prints the URL):
+  #   docker compose run --rm signal-bridge link
+  # The linked session is persisted in the signal-data volume.
+  signal-bridge:
+    build:
+      context: ./signal-bridge
+    image: signal-bridge:latest
+    restart: unless-stopped
+    container_name: signal-bridge
+    command: ["serve", "--listen", "0.0.0.0:8080"]
+    # Published to the host so a gateway running outside this compose network
+    # can reach it at host.docker.internal:8080 (the host set in
+    # SIGNAL_BOTS_CONFIG). If the gateway shares this network, you can switch
+    # the host to "signal-bridge" and drop this to `expose: ["8080"]`.
+    ports:
+      - "8080:8080"
+    environment:
+      SIGNAL_DB_PATH: /data/signal.db3
+      SIGNAL_SERVERS: production
+    volumes:
+      - signal-data:/data
+
+  # legacy Delta Chat relay used during migration from deltawoot to the native
+  # DeltaChatChannel. It stays optional so the native-only deployment does not
+  # need Chatwoot/IMAP/SMTP credentials for the old bridge.
+  deltawoot:
+    build:
+      context: ./deltawoot
+    image: deltawoot:latest
+    restart: unless-stopped
+    container_name: deltawoot
+    profiles:
+      - legacy-deltachat
+    env_file: .env
+    volumes:
+      - deltawoot_data:/home/deltawoot/files
 
   db:
     image: "ghcr.io/pgmq/pg${POSTGRES_VERSION}-pgmq:${PGMQ_VERSION}"
@@ -26,3 +80,23 @@ services:
       timeout: 3s
       start_period: 10s
       retries: 3
+
+  # ---------------- WhatsApp sidecar(s) ----------------
+  wa-sidecar-1:
+    build: ./sidecar
+    image: wa-baileys-sidecar:latest
+    container_name: wa-sidecar-1
+    restart: unless-stopped
+    environment:
+      CONNECTOR_ID: wa1
+      PORT: "3000"
+      SELF_URL: http://wa-sidecar-1:3000
+      GATEWAY_INGEST_URL: http://gateway:8000/ingest/incoming/whatsapp/wa1/webhook
+      SIDECAR_TOKEN: ${WA_SIDECAR_TOKEN}
+      INGEST_TOKEN: ${WA_INGEST_TOKEN}
+      LOG_LEVEL: info
+      # Set WA1_PAIR_NUMBER in .env (digits + country code, no '+') to log in
+      # via pairing code instead of QR. Leave empty to use QR.
+      PAIR_NUMBER: ${WA1_PAIR_NUMBER:-}
+    volumes:
+      - wa1_auth:/data/auth

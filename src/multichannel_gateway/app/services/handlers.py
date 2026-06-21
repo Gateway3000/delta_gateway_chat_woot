@@ -61,9 +61,10 @@ async def handle_chatwoot_payload(
         if payload.get("message_type") == "outgoing":
             try:
                 identifier = payload["conversation"]["meta"]["sender"]["identifier"]
-                payload["conversation"]["meta"]["sender"]["identifier"] = (
-                    IEnvelopeFactory._strip_channel_prefix(identifier, channel)
-                )
+                if channel != "delta_chat":
+                    payload["conversation"]["meta"]["sender"]["identifier"] = (
+                        IEnvelopeFactory._strip_channel_prefix(identifier, channel)
+                    )
                 channel_ = registry.get_channel(channel)
                 await channel_.publish_chatwoot_message(payload, cw_account_id)
                 mark_span_ok(span)

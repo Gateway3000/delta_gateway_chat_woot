@@ -21,6 +21,8 @@ dependencies = [
     "uvicorn==0.35.0",
     "pydantic-settings==2.10.1",
     "pydantic[email]==2.11.9",
+    "deltachat-rpc-client==2.53.0",
+    "deltachat-rpc-server==2.53.0",
     "aiogram==3.25",
     "aiolimiter==1.2.0",
     "structlog==25.4.0",
@@ -29,16 +31,19 @@ dependencies = [
     "opentelemetry-exporter-otlp==1.40.0",
     "opentelemetry-instrumentation-fastapi==0.61b0",
     "opentelemetry-sdk==1.40.0",
+    "httpx>=0.28.1",
 ]
 
 [project.entry-points."multichannel_gateway.channels"]
 telegram = "channels.telegram_channel.tg_wiring:telegram_channel"
 email = "channels.email_channel.email_wiring:email_channel"
+imessage = "channels.imessage_channel:imessage_channel"
+signal = "channels.signal_channel:signal_channel"
+whatsapp = "channels.whatsapp_channel.wa_wiring:whatsapp_channel"
+deltachat = "channels.delta_chat_channel.dc_wiring:delta_chat_channel"
 
 [project.optional-dependencies]
-sentry = [
-    "sentry-sdk[opentelemetry-otlp]==2.56.0",
-]
+sentry = ["sentry-sdk[opentelemetry-otlp]==2.56.0"]
 
 [dependency-groups]
 dev = [
@@ -55,6 +60,7 @@ dev = [
     "aioresponses==0.7.8",
     "pysentry-rs==0.4.3",
     "testcontainers[postgres]==4.10.0",
+    "execnet==2.1.2",
 ]
 
 [tool.pytest.ini_options]
@@ -66,10 +72,13 @@ log_cli = true
 log_cli_format = "%(message)s"
 log_cli_level = "DEBUG"
 
+[tool.ruff]
+extend-exclude = ["deltawoot"]
+
 [tool.mypy]
 disable_error_code = "return"
 ignore_missing_imports = true
-exclude = "venv/"
+exclude = "(venv/|deltawoot/)"
 mypy_path = "stubs"
 cache_dir = "mypy_checks"
 

@@ -12,7 +12,15 @@ services:
     networks:
       gateway:
 
+  deltawoot:
+    networks:
+      gateway:
+
   db:
     container_name: db-gateway
+    networks:
+      gateway:
+
+  wa-sidecar-1:
     networks:
       gateway:

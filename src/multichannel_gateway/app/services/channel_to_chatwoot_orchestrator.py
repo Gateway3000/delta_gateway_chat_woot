@@ -19,10 +19,12 @@ class ChannelToChatwootOrchestrator:
         idempotency_key, envelope = await channel.build_channel_message(raw_data)
 
         raw_id = envelope.sender.external_id
-        envelope.sender.raw_external_id = raw_id
-        envelope.sender.external_id = IEnvelopeFactory._add_channel_prefix(
-            raw_id, channel_name
-        )
+        if envelope.sender.raw_external_id is None and channel_name != "delta_chat":
+            envelope.sender.raw_external_id = raw_id
+        if channel_name != "delta_chat":
+            envelope.sender.external_id = IEnvelopeFactory._add_channel_prefix(
+                raw_id, channel_name
+            )
 
         if self._anonymize_users:
             envelope.sender.name = generate_username()[0]
