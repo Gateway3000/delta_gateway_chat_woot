@@ -11,6 +11,13 @@ from channels.signal_channel.plugin_settings import BotConfig
 
 logger = structlog.get_logger(__name__)
 
+# The bridge delivers attachments inline as base64 on a single NDJSON line, so
+# a line can be much larger than asyncio's default 64 KiB readline limit. A
+# ~100 MiB Signal attachment (the platform max) becomes ~137 MiB of base64, so
+# the stream limit must comfortably exceed that or `readline()` aborts the
+# connection with "Separator is found, but chunk is longer than limit".
+_READ_LIMIT = 160 * 1024 * 1024
+
 
 class SignalBridgeError(Exception):
     """A failure talking to the signal-bridge daemon.
@@ -74,8 +81,18 @@ class SignalBridgeConnection:
             await asyncio.gather(self._task, return_exceptions=True)
             self._task = None
 
-    async def send(self, recipient: str, message: str) -> dict[str, Any]:
-        """Send one message and await the bridge's `send_result`."""
+    async def send(
+        self,
+        recipient: str,
+        message: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Send one message and await the bridge's `send_result`.
+
+        `attachments` is an optional list of `{data, content_type, filename}`
+        dicts where `data` is the base64-encoded file contents; the bridge
+        uploads them to Signal's CDN and links them into the message.
+        """
         async with self._send_lock:
             if self._writer is None or not self._connected.is_set():
                 raise SignalBridgeError(
@@ -85,7 +102,10 @@ class SignalBridgeConnection:
             future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
             self._pending.append(future)
 
-            payload = json.dumps({"recipient": recipient, "message": message}) + "\n"
+            command: dict[str, Any] = {"recipient": recipient, "message": message}
+            if attachments:
+                command["attachments"] = attachments
+            payload = json.dumps(command) + "\n"
             try:
                 self._writer.write(payload.encode("utf-8"))
                 await self._writer.drain()
@@ -106,7 +126,9 @@ class SignalBridgeConnection:
     async def _run(self) -> None:
         while not self._stopping.is_set():
             try:
-                reader, writer = await asyncio.open_connection(self.host, self.port)
+                reader, writer = await asyncio.open_connection(
+                    self.host, self.port, limit=_READ_LIMIT
+                )
                 self._writer = writer
                 self._connected.set()
                 logger.info(

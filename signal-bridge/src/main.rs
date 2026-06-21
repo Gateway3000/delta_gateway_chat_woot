@@ -11,10 +11,16 @@
 //! Protocol (identical for both transports):
 //!   * outbound (bridge → client), one JSON object per line:
 //!       {"type":"linked",...} {"type":"ready"}
-//!       {"type":"message","source_uuid":..,"source_name":..,"timestamp":..,"message":..}
+//!       {"type":"message","source_uuid":..,"source_name":..,"timestamp":..,
+//!        "message":..,"attachments":[{"data":<base64>,"content_type":..,
+//!                                     "filename":..,"size":..}]}
 //!       {"type":"queue_empty"} {"type":"send_result",..} {"type":"error",..}
 //!   * inbound (client → bridge), one JSON object per line:
 //!       {"recipient":"<uuid-or-service-id>","message":"hello"}
+//!       {"recipient":"<uuid-or-service-id>","message":"caption",
+//!        "attachments":[{"data":"<base64>","content_type":"image/png",
+//!                        "filename":"pic.png"}]}
+//!     `message` may be empty when `attachments` carries the whole message.
 //!
 //! Diagnostic logging goes to **stderr** so the protocol stream stays clean.
 //!
@@ -28,15 +34,18 @@ use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
+use base64::prelude::{Engine as _, BASE64_STANDARD};
 use clap::{Parser, Subcommand};
 use futures::{channel::oneshot, future, pin_mut, StreamExt};
 use presage::libsignal_service::configuration::SignalServers;
 use presage::libsignal_service::content::{Content, ContentBody, DataMessage};
 use presage::libsignal_service::prelude::Uuid;
 use presage::libsignal_service::protocol::ServiceId;
+use presage::libsignal_service::sender::AttachmentSpec;
 use presage::manager::Registered;
 use presage::model::identity::OnNewIdentity;
 use presage::model::messages::Received;
+use presage::proto::AttachmentPointer;
 use presage::store::Store;
 use presage::Manager;
 use presage_store_sqlite::SqliteStore;
@@ -96,8 +105,30 @@ enum Cmd {
 struct Outgoing {
     /// A bare UUID (ACI) or a full service-id string (e.g. "PNI:<uuid>").
     recipient: String,
-    /// The text body to send.
+    /// The text body to send. May be empty when `attachments` carries the
+    /// whole message (e.g. an image with no caption).
+    #[serde(default)]
     message: String,
+    /// Files to attach. Each carries its bytes inline as base64 so the whole
+    /// request stays a single JSON line, matching the NDJSON protocol.
+    #[serde(default)]
+    attachments: Vec<OutgoingAttachment>,
+}
+
+/// One outgoing attachment: the file bytes (base64) plus presentation metadata.
+#[derive(Deserialize)]
+struct OutgoingAttachment {
+    /// base64-encoded file contents (standard alphabet, with padding).
+    data: String,
+    /// MIME type; defaults to `application/octet-stream` when absent.
+    #[serde(default)]
+    content_type: Option<String>,
+    /// Original file name shown to the recipient.
+    #[serde(default)]
+    filename: Option<String>,
+    /// Whether to mark the attachment as a voice note.
+    #[serde(default)]
+    voice_note: Option<bool>,
 }
 
 #[tokio::main]
@@ -265,7 +296,7 @@ where
     S: Store,
 {
     match serde_json::from_str::<Outgoing>(line) {
-        Ok(out) => match send_text(manager, &out).await {
+        Ok(out) => match send_message(manager, &out).await {
             Ok(timestamp) => {
                 emit(
                     sink,
@@ -314,8 +345,11 @@ where
     Ok(())
 }
 
-/// Emit a single incoming message, filtered to **1:1 text** messages only
-/// (groups, reactions, receipts, typing, sync and empty bodies are dropped).
+/// Emit a single incoming **1:1** message. Text and/or attachments are
+/// surfaced; group messages and content that carries neither text nor a
+/// fetchable attachment (reactions, receipts, typing, sync, empty bodies)
+/// are dropped. Attachments are downloaded from the CDN and carried inline
+/// as base64, mirroring the outgoing protocol.
 async fn emit_incoming<S>(manager: &Manager<S, Registered>, sink: &Sink, content: &Content)
 where
     S: Store,
@@ -327,10 +361,10 @@ where
     if data.group_v2.is_some() {
         return;
     }
-    let Some(text) = data.body.as_deref() else {
-        return;
-    };
-    if text.is_empty() {
+
+    let text = data.body.as_deref().unwrap_or("");
+    let attachments = fetch_incoming_attachments(manager, data).await;
+    if text.is_empty() && attachments.is_empty() {
         return;
     }
 
@@ -352,29 +386,117 @@ where
             "source_name": name,
             "timestamp": data.timestamp,
             "message": text,
+            "attachments": attachments,
         }),
     )
     .await;
 }
 
-/// Send a text message to a single recipient. Returns the message timestamp.
-async fn send_text<S>(manager: &mut Manager<S, Registered>, out: &Outgoing) -> Result<u64>
+/// Download each attachment referenced by an incoming `DataMessage` and return
+/// them as JSON objects carrying the bytes inline as base64. Attachments that
+/// fail to download are logged and skipped rather than dropping the message.
+async fn fetch_incoming_attachments<S>(
+    manager: &Manager<S, Registered>,
+    data: &DataMessage,
+) -> Vec<Value>
+where
+    S: Store,
+{
+    let mut out = Vec::with_capacity(data.attachments.len());
+    for pointer in &data.attachments {
+        match manager.get_attachment(pointer).await {
+            Ok(bytes) => out.push(json!({
+                "data": BASE64_STANDARD.encode(&bytes),
+                "content_type": pointer.content_type,
+                "filename": pointer.file_name,
+                "size": pointer.size,
+            })),
+            Err(error) => warn!(%error, "failed to fetch incoming attachment"),
+        }
+    }
+    out
+}
+
+/// Send a message (text and/or attachments) to a single recipient. Returns
+/// the message timestamp. Attachments are uploaded to the CDN first, then
+/// linked into the `DataMessage`.
+async fn send_message<S>(manager: &mut Manager<S, Registered>, out: &Outgoing) -> Result<u64>
 where
     S: Store,
 {
     let recipient = parse_recipient(&out.recipient)?;
     let timestamp = now_millis();
-    let body = DataMessage {
-        body: Some(out.message.clone()),
+
+    let attachments = upload_outgoing_attachments(manager, &out.attachments).await?;
+
+    // Signal treats a missing body and an empty body differently; send `None`
+    // for attachment-only messages so they don't carry a stray empty caption.
+    let body = if out.message.is_empty() {
+        None
+    } else {
+        Some(out.message.clone())
+    };
+
+    let data = DataMessage {
+        body,
         timestamp: Some(timestamp),
+        attachments,
         ..Default::default()
     };
     manager
-        .send_message(recipient, body, timestamp)
+        .send_message(recipient, data, timestamp)
         .await
         .map_err(to_anyhow)
         .context("failed to send message")?;
     Ok(timestamp)
+}
+
+/// Decode and upload each outgoing attachment to Signal's CDN, returning the
+/// pointers to link into a `DataMessage`. An empty input is a no-op.
+async fn upload_outgoing_attachments<S>(
+    manager: &Manager<S, Registered>,
+    attachments: &[OutgoingAttachment],
+) -> Result<Vec<AttachmentPointer>>
+where
+    S: Store,
+{
+    if attachments.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut specs = Vec::with_capacity(attachments.len());
+    for attachment in attachments {
+        let data = BASE64_STANDARD
+            .decode(attachment.data.as_bytes())
+            .context("attachment `data` is not valid base64")?;
+        let spec = AttachmentSpec {
+            content_type: attachment
+                .content_type
+                .clone()
+                .unwrap_or_else(|| "application/octet-stream".to_string()),
+            length: data.len(),
+            file_name: attachment.filename.clone(),
+            preview: None,
+            voice_note: attachment.voice_note,
+            borderless: None,
+            width: None,
+            height: None,
+            caption: None,
+            blur_hash: None,
+        };
+        specs.push((spec, data));
+    }
+
+    let mut pointers = Vec::with_capacity(specs.len());
+    for result in manager
+        .upload_attachments(specs)
+        .await
+        .map_err(to_anyhow)
+        .context("failed to upload attachments")?
+    {
+        pointers.push(result.map_err(to_anyhow).context("attachment upload failed")?);
+    }
+    Ok(pointers)
 }
 
 /// Accept either a full service-id string ("PNI:<uuid>" / "<uuid>") or a bare

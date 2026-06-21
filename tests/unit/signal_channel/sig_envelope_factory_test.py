@@ -50,6 +50,68 @@ class TestSignalEnvelopeFactory:
                 event, bot_config.connector_id, "signal"
             )
 
+    def test_parse_inbound_attachment_only_message(
+        self, envelope_factory: SignalEnvelopeFactory, bot_config: BotConfig
+    ) -> None:
+        event = make_message(message="")
+        event["attachments"] = [
+            {
+                "data": "QUJD",  # base64 for "ABC"
+                "content_type": "image/jpeg",
+                "filename": "photo.jpg",
+                "size": 3,
+            }
+        ]
+
+        _, envelope = envelope_factory.parse_channel_request(
+            event, bot_config.connector_id, "signal"
+        )
+
+        assert envelope.payload["text"] == ""
+        attachments = envelope.payload["attachments"]
+        assert len(attachments) == 1
+        assert attachments[0] == {
+            "kind": "base64",
+            "filename": "photo.jpg",
+            "mime_type": "image/jpeg",
+            "file_type": "image",
+            "data": "QUJD",
+            "data_encoding": "base64",
+        }
+        # The heavy inline bytes are not duplicated into raw_data.
+        assert "attachments" not in envelope.payload["raw_data"]
+
+    def test_parse_chatwoot_request_extracts_attachments(
+        self, envelope_factory: SignalEnvelopeFactory, bot_config: BotConfig
+    ) -> None:
+        raw_data = {
+            "inbox": {"id": int(bot_config.cw_inbox_id)},
+            "content": "see attached",
+            "attachments": [
+                {
+                    "file_type": "image",
+                    "data_url": "https://cw.example/pic.png",
+                    "file_name": "pic.png",
+                    "content_type": "image/png",
+                    "file_size": 100,
+                }
+            ],
+            "conversation": {
+                "meta": {
+                    "sender": {"identifier": "2647ff35-bb65-4459-90d8-c5c832c04d08"}
+                },
+                "messages": [{"id": 555}],
+            },
+        }
+
+        _, envelope = envelope_factory.parse_chatwoot_request(
+            raw_data, bot_config.cw_account_id, "signal"
+        )
+
+        attachments = envelope.payload["attachments"]
+        assert len(attachments) == 1
+        assert attachments[0]["data_url"] == "https://cw.example/pic.png"
+
     def test_parse_chatwoot_request_uses_identifier_as_recipient(
         self, envelope_factory: SignalEnvelopeFactory, bot_config: BotConfig
     ) -> None:
