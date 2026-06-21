@@ -1,5 +1,5 @@
 import { Session, Poller, ready } from '@session.js/client'
-mport type { Message } from '@session.js/types'
+import type { Message } from '@session.js/types'
 import { SessionJsError, SessionValidationError } from '@session.js/errors'
 import type { WebhookConfig } from './config'
 

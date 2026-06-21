@@ -5,14 +5,9 @@
     "": {
       "name": "session",
       "dependencies": {
-        "@session.js/client": "^0.0.57",
-        "@session.js/types": "^1.0.19",
-      },
-      "devDependencies": {
-        "@types/bun": "latest",
-      },
-      "peerDependencies": {
-        "typescript": "^5",
+        "@session.js/client": "latest",
+        "@session.js/errors": "latest",
+        "@session.js/types": "latest",
       },
     },
   },
@@ -57,13 +52,9 @@
 
     "@session.js/types": ["@session.js/types@1.0.19", "", { "dependencies": { "@session.js/consts": "^1.0.4", "@session.js/errors": "^1.0.11", "lodash": "^4.17.21", "long": "^5.3.2", "protobufjs": "^7.3.2" }, "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-6uGM9jMcY4nWUtY/oc7t1kLtnLXA9AnDX8VV4yXMA8sfrUBlrI+fn00Y84r75Q5PK0xMj9eQglRf+L7QoQBYyg=="],
 
-    "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
-
     "@types/node": ["@types/node@26.0.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-vf2YFi1iY9lHGwNJMs01biZFbKJkrZR1T6/MlzjhJLPdntOHLhTrDSnSVcdtvjihi4VQNlrFRIxLsDBlQpAipA=="],
 
     "@types/retry": ["@types/retry@0.12.2", "", {}, "sha512-XISRgDJ2Tc5q4TRqvgJtzsRkFYNJzZrhTdtMoGVBttwzzQJkPnS3WWTFc7kuDRoPtPakl+T+OfdEUjYJj7Jbow=="],
-
-    "bun-types": ["bun-types@1.3.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ=="],
 
     "curve25519-js": ["curve25519-js@0.0.4", "", {}, "sha512-axn2UMEnkhyDUPWOwVKBMVIzSQy2ejH2xRGy1wq81dqRwApXfIzfbE3hIX0ZRFBIihf/KDqK158DLwESu4AK1w=="],
 
