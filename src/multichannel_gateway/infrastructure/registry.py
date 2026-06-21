@@ -38,9 +38,13 @@ class ChannelRegistry:
         available = []
         for ep in eps:
             available.append(ep.name)
-            if target_names and ep.name.lower() not in target_names:
-                continue
             channel = ep.load()
+            entry_point_names = {
+                ep.name.lower(),
+                getattr(channel, "channel", "").lower(),
+            }
+            if target_names and entry_point_names.isdisjoint(target_names):
+                continue
             if channel.channel in self._channels:
                 logger.warning(
                     "Replacing already registered channel from entry point",
@@ -48,6 +52,8 @@ class ChannelRegistry:
                     entry_point=ep.name,
                 )
             self._channels[channel.channel] = channel
+            if ep.name != channel.channel:
+                self._channels[ep.name] = channel
             discovered += 1
 
         if target_names:
@@ -77,6 +83,9 @@ class ChannelRegistry:
             raise ValueError(f"Channel '{channel}' not found")
         return self._channels[channel]
 
+    def _unique_channels(self) -> list[IChannel]:
+        return list({id(channel): channel for channel in self._channels.values()}.values())
+
     async def on_startup(self) -> None:
         """Performs startup tasks for all registered channels during FastAPI lifespan.
 
@@ -84,7 +93,7 @@ class ChannelRegistry:
         FastAPI application starts.
         """
         tasks = []
-        for channel in self._channels.values():
+        for channel in self._unique_channels():
             startup_task = asyncio.create_task(channel.on_startup())
             tasks.append(startup_task)
             logger.info(f'Initializing channel "{channel.channel}"...')
@@ -97,7 +106,7 @@ class ChannelRegistry:
         when the FastAPI application is shutting down.
         """
         tasks = []
-        for channel in self._channels.values():
+        for channel in self._unique_channels():
             shutdown_task = asyncio.create_task(channel.on_shutdown())
             tasks.append(shutdown_task)
             logger.info(f'Initiating shutdown for channel "{channel.channel}"...')
@@ -111,7 +120,7 @@ class ChannelRegistry:
         prepared for multiprocess execution.
         """
         tasks = []
-        for channel in self._channels.values():
+        for channel in self._unique_channels():
             prefork_task = asyncio.create_task(channel.on_prefork())
             tasks.append(prefork_task)
             logger.debug(f'Executing prefork for channel "{channel.channel}"...')

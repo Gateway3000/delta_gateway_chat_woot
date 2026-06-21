@@ -51,6 +51,9 @@ def _resolve_file_metadata(
     attachment: dict[str, Any],
     file_path: str,
 ) -> tuple[str, str, str, str]:
+    view_type = attachment.get("view_type") or attachment.get("viewtype") or ""
+    normalized_view_type = _normalize_view_type(view_type)
+
     filename = (
         attachment.get("filename")
         or attachment.get("file_name")
@@ -63,7 +66,13 @@ def _resolve_file_metadata(
         or mimetypes.guess_type(filename)[0]
         or "application/octet-stream"
     )
-    view_type = attachment.get("view_type") or attachment.get("viewtype") or ""
+
+    if normalized_view_type == "voice":
+        if not Path(filename).suffix:
+            filename = "voice.ogg"
+        if mime_type == "application/octet-stream":
+            mime_type = "audio/ogg"
+
     file_type = _classify_file_type(str(mime_type), view_type)
     return str(filename), str(mime_type), str(view_type or ""), file_type
 
@@ -185,4 +194,3 @@ def resolve_delta_chat_viewtype(attachment: dict[str, Any]) -> ViewType | None:
     if mime_type.startswith("audio/"):
         return ViewType.VOICE if normalized_view_type == "voice" else ViewType.AUDIO
     return None
-

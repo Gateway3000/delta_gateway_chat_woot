@@ -51,6 +51,11 @@ class DeltaChatChannel(IChannel):
     def get_route_by_connector_id(self, connector_id: str) -> dict[str, str]:
         return self._routing.get_route_by_connector_id(connector_id)
 
+    async def get_secure_join_qr_svg(self, connector_id: str) -> str:
+        return await asyncio.to_thread(
+            self._client.get_secure_join_qr_svg, connector_id
+        )
+
     async def send_to_user(
         self, message: dict[str, Any], limiter: Any = None
     ) -> ChannelDeliveryResult:

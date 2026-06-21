@@ -30,6 +30,9 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --locked --no-dev --extra sentry
 
+RUN mkdir -p /data/deltachat \
+  && chown -R nonroot:nonroot /data
+
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Reset the entrypoint, don't invoke `uv`

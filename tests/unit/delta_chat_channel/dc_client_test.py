@@ -93,6 +93,66 @@ def test_rpc_listener_shutdown_clears_state() -> None:
     assert client._deltachat is None
 
 
+def test_attachment_message_is_downloaded_before_processing() -> None:
+    client, _ = _build_client()
+    rpc = MagicMock()
+    client._rpc = rpc
+    account = SimpleNamespace(id=7)
+    message = MagicMock()
+    downloaded_snapshot = {
+        "id": 46,
+        "view_type": "Image",
+        "download_state": "Done",
+        "file": "/data/deltachat/blob/photo.png",
+    }
+    message.get_snapshot.return_value = downloaded_snapshot
+    initial_snapshot = {
+        "id": 46,
+        "view_type": "Image",
+        "download_state": "Available",
+        "file": None,
+    }
+
+    result = client._wait_for_full_message(account, 46, message, initial_snapshot)
+
+    rpc.download_full_message.assert_called_once_with(7, 46)
+    assert result == downloaded_snapshot
+
+
+def test_full_message_wait_returns_as_soon_as_file_is_available() -> None:
+    client, _ = _build_client()
+    rpc = MagicMock()
+    client._rpc = rpc
+    account = SimpleNamespace(id=7)
+    message = MagicMock()
+    snapshots = [
+        {
+            "id": 46,
+            "view_type": "Audio",
+            "download_state": "available",
+            "file": None,
+        },
+        {
+            "id": 46,
+            "view_type": "Audio",
+            "download_state": "available",
+            "file": "/data/deltachat/blob/audio.ogg",
+        },
+        {
+            "id": 46,
+            "view_type": "Audio",
+            "download_state": "done",
+            "file": "/data/deltachat/blob/audio.ogg",
+        },
+    ]
+    message.get_snapshot.side_effect = snapshots
+
+    result = client._wait_for_full_message(account, 46, message, snapshots[0])
+
+    rpc.download_full_message.assert_called_once_with(7, 46)
+    assert result["file"] == "/data/deltachat/blob/audio.ogg"
+
+
 def test_own_messages_are_ignored() -> None:
     client, runtime_account = _build_client()
     stop_event = client._stop_event
@@ -159,9 +219,9 @@ class _PersistentAccount:
     def is_configured(self) -> bool:
         return self._configured
 
-    def configure(self, email: str, password: str) -> None:
-        self._config["addr"] = email
-        self._config["password"] = password
+    def add_or_update_transport(self, config: dict[str, str]) -> None:
+        self._config["addr"] = config["addr"]
+        self._config["password"] = config["password"]
         self._configured = True
         self._persist()
 

@@ -47,8 +47,10 @@ class _FakeResponse:
 class _FakeSession:
     def __init__(self, response: _FakeResponse) -> None:
         self._response = response
+        self.requested_urls: list[str] = []
 
-    def get(self, _url: str) -> _FakeResponse:
+    def get(self, url: str) -> _FakeResponse:
+        self.requested_urls.append(url)
         return self._response
 
 
@@ -125,8 +127,8 @@ class TestDeltaChatTransport:
         contact = MagicMock()
         chat = MagicMock()
         client.get_account.return_value = account
-        account.create_contact.return_value = contact
-        contact.create_chat.return_value = chat
+        account.get_contact_by_addr.return_value = contact
+        account.get_chat_by_contact.return_value = chat
         transport = DeltaChatTransport(settings, routing, client, identity_store)
         transport._send_via_bridge = AsyncMock()  # type: ignore[method-assign]
 
@@ -150,9 +152,10 @@ class TestDeltaChatTransport:
 
         assert result == ChannelDeliveryResult(ok=True, external_id="bot1@example.org")
         client.get_account.assert_called_once_with(account_config.connector_id)
-        account.create_contact.assert_called_once()
-        contact.create_chat.assert_called_once()
-        chat.send_text.assert_called_once_with("hello")
+        account.get_contact_by_addr.assert_called_once_with("bot1@example.org")
+        account.create_contact.assert_not_called()
+        account.get_chat_by_contact.assert_called_once_with(contact)
+        chat.send_message.assert_called_once_with(text="hello")
         transport._send_via_bridge.assert_not_called()
 
     @pytest.mark.asyncio
@@ -212,8 +215,8 @@ class TestDeltaChatTransport:
         contact = MagicMock()
         chat = MagicMock()
         client.get_account.return_value = account
-        account.create_contact.return_value = contact
-        contact.create_chat.return_value = chat
+        account.get_contact_by_addr.return_value = contact
+        account.get_chat_by_contact.return_value = chat
         transport = DeltaChatTransport(
             settings, routing, client, identity_store, cw_session_manager
         )
@@ -258,6 +261,64 @@ class TestDeltaChatTransport:
         client.get_account.assert_called_once_with(account_config.connector_id)
 
     @pytest.mark.asyncio
+    async def test_outgoing_attachment_rewrites_chatwoot_loopback_url(
+        self,
+        routing,
+        account_config: DeltaChatAccountConfig,
+        identity_store,
+        tmp_path: Path,
+    ) -> None:
+        native_account_config = account_config.model_copy(update={"bridge_url": None})
+        settings = DeltaChatSettings(
+            delta_chat_accounts=[native_account_config],
+            deltachat_accounts_dir=str(tmp_path / "deltachat"),
+            enable_native_deltachat_channel=True,
+            chatwoot_base_url="http://host.docker.internal:3000",
+        )
+        cw_session_manager = _FakeSessionManager(_FakeResponse())
+        client = MagicMock()
+        account = MagicMock()
+        contact = MagicMock()
+        chat = MagicMock()
+        client.get_account.return_value = account
+        account.get_contact_by_addr.return_value = contact
+        account.get_chat_by_contact.return_value = chat
+        transport = DeltaChatTransport(
+            settings, routing, client, identity_store, cw_session_manager
+        )
+        message = Envelope(
+            idem_key="key",
+            channel="delta_chat",
+            from_="chatwoot",
+            to="delta_chat",
+            connector_id=account_config.connector_id,
+            cw_account_id=native_account_config.cw_account_id,
+            cw_inbox_id=native_account_config.cw_inbox_id,
+            message_id="msg-loopback",
+            sender=SenderInfo(
+                external_id="chatwoot_actor_1", raw_external_id="bot1@example.org"
+            ),
+            payload={
+                "attachments": [
+                    {
+                        "data_url": "http://localhost:3000/storage/photo.jpg?token=one",
+                        "mime_type": "image/jpeg",
+                        "file_type": "image",
+                        "size": 10,
+                    }
+                ]
+            },
+            ts=1.0,
+        )
+
+        await transport.send_to_delta_chat_user(message.model_dump(mode="json"))
+
+        assert cw_session_manager.session.requested_urls == [
+            "http://host.docker.internal:3000/storage/photo.jpg?token=one"
+        ]
+        assert chat.send_message.call_args.kwargs["filename"] == "photo.jpg"
+
+    @pytest.mark.asyncio
     async def test_outgoing_attachment_temp_file_is_removed_on_exception(
         self,
         routing,
@@ -278,8 +339,8 @@ class TestDeltaChatTransport:
         chat = MagicMock()
         chat.send_message.side_effect = RuntimeError("send failed")
         client.get_account.return_value = account
-        account.create_contact.return_value = contact
-        contact.create_chat.return_value = chat
+        account.get_contact_by_addr.return_value = contact
+        account.get_chat_by_contact.return_value = chat
         transport = DeltaChatTransport(
             settings, routing, client, identity_store, cw_session_manager
         )

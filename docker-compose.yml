@@ -3,6 +3,7 @@ volumes:
   signal-data:
   wa1_auth:
   deltawoot_data:
+  deltachat_data:
 
 services:
   app:
@@ -16,6 +17,10 @@ services:
       - db
       - signal-bridge
     env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - deltachat_data:/data/deltachat
 
   # signal-bridge fronts the Signal account: a small presage-based daemon that
   # speaks newline-delimited JSON over TCP. The gateway's Signal connector

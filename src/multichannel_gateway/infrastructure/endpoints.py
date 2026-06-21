@@ -15,6 +15,18 @@ async def health() -> Response:
     return Response(status_code=status.HTTP_200_OK)
 
 
+@router.get("/deltachat/{connector_id}/secure-join-qr.svg")
+async def deltachat_secure_join_qr(connector_id: str) -> Response:
+    from src.multichannel_gateway.app.wiring import registry
+
+    channel = registry.get_channel("delta_chat")
+    get_qr = getattr(channel, "get_secure_join_qr_svg", None)
+    if get_qr is None:
+        return Response(status_code=status.HTTP_404_NOT_FOUND)
+    svg = await get_qr(connector_id)
+    return Response(content=svg, media_type="image/svg+xml")
+
+
 @router.post("/ingest/incoming/{channel}/{connector_id}/webhook")
 async def to_chatwoot(channel: str, connector_id: str, request: Request) -> Response:
     """An endpoint for handling Channel -> Chatwoot webhooks."""

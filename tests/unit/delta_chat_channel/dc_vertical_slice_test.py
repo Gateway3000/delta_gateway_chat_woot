@@ -68,7 +68,7 @@ class _FakeAccount:
     def is_configured(self) -> bool:
         return True
 
-    def configure(self, *_args: object, **_kwargs: object) -> None:
+    def add_or_update_transport(self, *_args: object, **_kwargs: object) -> None:
         return None
 
     def set_config(self, *_args: object, **_kwargs: object) -> None:

@@ -76,6 +76,23 @@ def test_incoming_voice_normalizes_to_audio(tmp_path: Path) -> None:
     assert attachments[0]["view_type"] == "voice"
 
 
+def test_incoming_voice_falls_back_to_ogg_metadata(tmp_path: Path) -> None:
+    voice_path = tmp_path / "voice-note"
+    voice_path.write_bytes(b"voice-bytes")
+
+    attachments = extract_delta_chat_attachments(
+        {
+            "file": str(voice_path),
+            "view_type": "voice",
+            "message_id": "msg-4",
+        }
+    )
+
+    assert attachments[0]["filename"] == "voice.ogg"
+    assert attachments[0]["mime_type"] == "audio/ogg"
+    assert attachments[0]["file_type"] == "audio"
+
+
 def test_prepare_delta_chat_to_chatwoot_attachments_encodes_file(
     tmp_path: Path,
 ) -> None:

@@ -5,6 +5,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 
@@ -93,6 +94,7 @@ class DeltaChatTransport:
                 url = attachment.get("data_url") or attachment.get("url")
                 if not url:
                     raise FatalError("Missing attachment URL")
+                url = self._resolve_attachment_url(str(url))
                 if self._cw_session_manager is None:
                     raise FatalError("Chatwoot HTTP session is not available")
 
@@ -106,6 +108,7 @@ class DeltaChatTransport:
                 filename = str(
                     attachment.get("filename")
                     or attachment.get("file_name")
+                    or Path(urlsplit(url).path).name
                     or "attachment"
                 )
                 viewtype = resolve_delta_chat_viewtype(attachment)
@@ -144,8 +147,12 @@ class DeltaChatTransport:
                 prepared_attachments.append(await _download_attachment(attachment))
 
             def _deliver() -> None:
-                contact = account.create_contact(external_address, envelope.sender.name)
-                chat = contact.create_chat()
+                contact = account.get_contact_by_addr(external_address)
+                if contact is None:
+                    contact = account.create_contact(
+                        external_address, envelope.sender.name
+                    )
+                chat = account.get_chat_by_contact(contact) or contact.create_chat()
                 if prepared_attachments:
                     text_to_send = payload_text or None
                     for index, (temp_path, filename, viewtype) in enumerate(
@@ -166,7 +173,7 @@ class DeltaChatTransport:
                             )
                     return
                 if payload_text:
-                    chat.send_text(payload_text)
+                    chat.send_message(text=payload_text)
 
             try:
                 await asyncio.to_thread(_deliver)
@@ -184,6 +191,19 @@ class DeltaChatTransport:
             raise FatalError(str(exc)) from exc
         except Exception as exc:
             raise TransientError(f"Delta Chat delivery failed: {exc}") from exc
+
+    def _resolve_attachment_url(self, url: str) -> str:
+        parsed = urlsplit(url)
+        if parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            return url
+
+        chatwoot_base_url = self._settings.chatwoot_base_url.rstrip("/")
+        if not chatwoot_base_url:
+            return url
+        base = urlsplit(chatwoot_base_url)
+        return urlunsplit(
+            (base.scheme, base.netloc, parsed.path, parsed.query, parsed.fragment)
+        )
 
     async def _send_via_bridge(
         self,

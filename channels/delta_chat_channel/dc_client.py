@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -31,6 +32,7 @@ class DeltaChatClient:
             [DeltaChatRuntimeAccount, dict[str, Any]], None
         ] | None = None
         self._stop_event = threading.Event()
+        self._lifecycle_lock = threading.Lock()
         self._event_threads: list[threading.Thread] = []
 
     def set_new_message_handler(
@@ -43,9 +45,11 @@ class DeltaChatClient:
         return self._settings.enable_native_deltachat_channel
 
     def start(self) -> None:
-        if not self._settings.enable_native_deltachat_channel:
-            return
-        if self._rpc is not None:
+        with self._lifecycle_lock:
+            self._start_locked()
+
+    def _start_locked(self) -> None:
+        if not self._settings.enable_native_deltachat_channel or self._rpc is not None:
             return
 
         from deltachat_rpc_client import DeltaChat, Rpc
@@ -62,6 +66,11 @@ class DeltaChatClient:
         self._sync_accounts()
         self._deltachat.start_io()
         self._start_event_threads()
+
+    def get_secure_join_qr_svg(self, connector_id: str) -> str:
+        account = self.get_account(connector_id)
+        _qr_data, svg = account.get_qr_code_svg()
+        return svg
 
     def stop(self) -> None:
         if not self._settings.enable_native_deltachat_channel:
@@ -120,8 +129,9 @@ class DeltaChatClient:
         if account is None:
             account = self._deltachat.add_account()
 
-        if not account.is_configured():
-            account.configure(config.address, config.password)
+        account.add_or_update_transport(
+            {"addr": config.address, "password": config.password}
+        )
 
         account.set_config("displayname", config.display_name or config.address)
         if config.avatar_path:
@@ -202,6 +212,9 @@ class DeltaChatClient:
             try:
                 message = account.get_message_by_id(int(event.msg_id))
                 snapshot = message.get_snapshot()
+                snapshot = self._wait_for_full_message(
+                    account, int(event.msg_id), message, snapshot
+                )
                 sender_contact = message.get_sender_contact()
                 sender_snapshot = sender_contact.get_snapshot()
                 chat_snapshot: dict[str, Any] = {}
@@ -235,3 +248,34 @@ class DeltaChatClient:
                 self._new_message_handler(runtime_account, payload)
             except Exception:
                 continue
+
+    def _wait_for_full_message(
+        self,
+        account: Any,
+        message_id: int,
+        message: Any,
+        snapshot: dict[str, Any],
+    ) -> dict[str, Any]:
+        view_type = str(snapshot.get("view_type") or "").strip().lower()
+        download_state = str(snapshot.get("download_state") or "").strip().lower()
+        needs_download = (
+            view_type not in {"", "text"}
+            and not snapshot.get("file")
+            and download_state != "done"
+        )
+        if not needs_download or self._rpc is None:
+            return snapshot
+
+        self._rpc.download_full_message(account.id, message_id)
+        deadline = (
+            time.monotonic()
+            + self._settings.deltachat_attachment_download_timeout_seconds
+        )
+        while time.monotonic() < deadline and not self._stop_event.is_set():
+            snapshot = message.get_snapshot()
+            if snapshot.get("file"):
+                return snapshot
+            if str(snapshot.get("download_state") or "").lower() == "done":
+                return snapshot
+            time.sleep(0.2)
+        return snapshot

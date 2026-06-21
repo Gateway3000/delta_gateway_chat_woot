@@ -72,10 +72,13 @@ log_cli = true
 log_cli_format = "%(message)s"
 log_cli_level = "DEBUG"
 
+[tool.ruff]
+extend-exclude = ["deltawoot"]
+
 [tool.mypy]
 disable_error_code = "return"
 ignore_missing_imports = true
-exclude = "venv/"
+exclude = "(venv/|deltawoot/)"
 mypy_path = "stubs"
 cache_dir = "mypy_checks"
 
