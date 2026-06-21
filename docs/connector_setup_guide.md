@@ -193,18 +193,35 @@ host/port/volume.
 Runs through the **`simplex-chat` container** (official CLI as a WebSocket bot).
 Persistent connection, no webhook. One SimpleX profile per instance.
 
-**Clickops:** create the bot profile once (enter a display name, then `Ctrl-D`),
-then **share the bot's SimpleX address** with users so they can start a chat:
+**Clickops:** create the bot profile once (enter a display name when prompted,
+then `Ctrl-D`), then **share the bot's SimpleX address** with users so they can
+start a chat:
 
 ```bash
-# create the profile once
-docker compose run --rm --entrypoint simplex-chat simplex-chat -d /data/simplex
+# create the profile once — needs -it (a real TTY) and -d /data/simplex.
+# Without -d the binary writes to a throwaway path, not the volume (it does not
+# read SIMPLEX_DB; only the entrypoint does). Type the display name, then Ctrl-D.
+docker compose run --rm -it --entrypoint simplex-chat simplex-chat -d /data/simplex
 docker compose up -d simplex-chat
 ```
 
-On connect the gateway auto-creates the bot's SimpleX address and enables
-auto-accept of contact requests. The address is printed in the logs (look for
-`SimpleX bot address ready`) — share that with users.
+On connect the gateway auto-creates the bot's SimpleX address **and enables
+auto-accept of contact requests** (via `/_address_settings` in
+`setup_address()`). The address is printed in the logs (look for `SimpleX bot
+address ready`) — share that with users.
+
+**Fallback — read or set things by hand.** Only needed if the address didn't log
+or you see a `could not configure simplex auto-accept` WARNING. The service holds
+an exclusive lock on the profile DB, so **stop it first**:
+
+```bash
+docker compose stop simplex-chat
+docker compose run --rm -it --entrypoint simplex-chat simplex-chat -d /data/simplex
+#   /show_address     # print the existing address
+#   /auto_accept on   # enable auto-accept (the gateway normally does this)
+#   Ctrl-D            # exit
+docker compose up -d simplex-chat
+```
 
 **Config:**
 
@@ -212,8 +229,12 @@ auto-accept of contact requests. The address is printed in the logs (look for
 SIMPLEX_CONFIG='[{"connector_id":"sx1","ws_url":"ws://simplex-chat:5225","user_id":1,"cw_account_id":"123","cw_inbox_id":"555"}]'
 ```
 
-`user_id` is the CLI's local user id (`1` for a fresh profile). The profile DB
-lives in the `simplex-data` volume.
+`user_id` is the CLI's local user id (`1` for a fresh profile). If the gateway
+runs outside this compose network, use `ws://host.docker.internal:5225` instead
+(the port is published to the host). The profile DB — the bot's identity *and*
+its permanent address — lives in the `simplex-data` volume. **Deleting that
+volume destroys the address**: a new one is generated on next start and
+previously-connected users can no longer reach the bot.
 
 ---
 
