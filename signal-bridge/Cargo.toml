@@ -12,6 +12,7 @@ presage = { git = "https://github.com/whisperfish/presage", rev = "94208274ef721
 presage-store-sqlite = { git = "https://github.com/whisperfish/presage", rev = "94208274ef7218dfe4af5603a0b9be6e275c0a1a" }
 
 anyhow = "1.0"
+base64 = "0.22"
 clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3"
 qr2term = "0.3.1"

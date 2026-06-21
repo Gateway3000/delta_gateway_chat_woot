@@ -1,3 +1,4 @@
+import base64
 from typing import cast
 from unittest.mock import AsyncMock, Mock
 
@@ -46,7 +47,7 @@ class TestSignalTransport:
         )
 
         conn.send.assert_awaited_once_with(
-            "2647ff35-bb65-4459-90d8-c5c832c04d08", "Hello back"
+            "2647ff35-bb65-4459-90d8-c5c832c04d08", "Hello back", []
         )
         assert result.ok is True
         assert result.external_id == "1781965272850"
@@ -61,6 +62,64 @@ class TestSignalTransport:
                 _build_message(text="   "), limiter=_noop_limiter
             )
         conn.send.assert_not_awaited()
+
+    async def test_sends_attachment_as_base64(self, monkeypatch) -> None:
+        conn = Mock()
+        conn.send = AsyncMock(return_value={"ok": True, "timestamp": 1781965272850})
+        transport = SignalTransport(_build_bot_manager(conn))
+
+        fetch = AsyncMock(return_value=b"\x89PNG\r\n")
+        monkeypatch.setattr(
+            SignalTransport, "_fetch_outbound_attachment", staticmethod(fetch)
+        )
+
+        message = _build_message(text="see pic")
+        message["payload"]["attachments"] = [
+            {
+                "data_url": "https://cw.example/pic.png",
+                "mime_type": "image/png",
+                "filename": "pic.png",
+            }
+        ]
+
+        result = await transport.send_to_signal_user(message, limiter=_noop_limiter)
+
+        fetch.assert_awaited_once_with("https://cw.example/pic.png")
+        conn.send.assert_awaited_once_with(
+            "2647ff35-bb65-4459-90d8-c5c832c04d08",
+            "see pic",
+            [
+                {
+                    "data": base64.b64encode(b"\x89PNG\r\n").decode("ascii"),
+                    "content_type": "image/png",
+                    "filename": "pic.png",
+                }
+            ],
+        )
+        assert result.ok is True
+
+    async def test_attachment_only_send_is_allowed(self, monkeypatch) -> None:
+        conn = Mock()
+        conn.send = AsyncMock(return_value={"ok": True, "timestamp": 1781965272850})
+        transport = SignalTransport(_build_bot_manager(conn))
+
+        monkeypatch.setattr(
+            SignalTransport,
+            "_fetch_outbound_attachment",
+            staticmethod(AsyncMock(return_value=b"data")),
+        )
+
+        message = _build_message(text="")
+        message["payload"]["attachments"] = [
+            {"data_url": "https://cw.example/file.bin"}
+        ]
+
+        result = await transport.send_to_signal_user(message, limiter=_noop_limiter)
+
+        assert result.ok is True
+        _, sent_text, sent_attachments = conn.send.await_args.args
+        assert sent_text == ""
+        assert len(sent_attachments) == 1
 
     async def test_transient_bridge_error_is_transient(self) -> None:
         conn = Mock()

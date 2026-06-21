@@ -50,7 +50,7 @@ async def handle_channel_payload(
 async def handle_chatwoot_payload(
     channel: str, cw_account_id: str, payload: dict[str, Any]
 ) -> Response | None:
-    from src.multichannel_gateway.app.wiring import registry
+    from src.multichannel_gateway.app.wiring import alias_store, registry, settings
 
     with tracer.start_as_current_span("webhook.chatwoot_to_channel") as span:
         set_span_attributes(
@@ -61,11 +61,52 @@ async def handle_chatwoot_payload(
         if payload.get("message_type") == "outgoing":
             try:
                 identifier = payload["conversation"]["meta"]["sender"]["identifier"]
-                if channel != "delta_chat":
-                    payload["conversation"]["meta"]["sender"]["identifier"] = (
-                        IEnvelopeFactory._strip_channel_prefix(identifier, channel)
+
+                # Some channels (e.g. delta_chat) own their identity mapping via
+                # IdentityStore and tag the Chatwoot contact identifier with a
+                # "<channel>_<token>" prefix, resolving it back to the real
+                # address themselves in their transport — so they must receive
+                # the identifier verbatim. Under anonymization, alias_store
+                # identifiers are bare UUIDs with no channel prefix, so a
+                # registered-channel prefix here unambiguously marks such a
+                # channel: route to it and leave the identifier intact, ahead of
+                # the alias_store lookup (which doesn't know these identifiers).
+                identity_channel = None
+                if settings.anonymize_users and isinstance(identifier, str):
+                    identity_channel = next(
+                        (
+                            name
+                            for name in registry.channel_names
+                            if identifier.startswith(f"{name}_")
+                        ),
+                        None,
                     )
-                channel_ = registry.get_channel(channel)
+
+                if identity_channel is not None:
+                    target_channel = identity_channel
+                elif settings.anonymize_users:
+                    # Identifier is an opaque alias — resolve it back to real_id.
+                    # Channel comes from the webhook URL (no prefix to detect from).
+                    real_id = await alias_store.resolve_alias(identifier)
+                    if real_id is None:
+                        raise ConnectorNotFoundError(
+                            f"Unknown alias: {identifier}"
+                        )
+                    payload["conversation"]["meta"]["sender"]["identifier"] = real_id
+                    target_channel = channel
+                else:
+                    # Contact identifiers are channel-prefixed (e.g. "simplex_3").
+                    # Route by that prefix rather than the channel in the webhook
+                    # URL, so a single Chatwoot account webhook serves every channel
+                    # and replies never land on the wrong transport.
+                    target_channel = _resolve_outgoing_channel(
+                        identifier, channel, registry
+                    )
+                    payload["conversation"]["meta"]["sender"]["identifier"] = (
+                        IEnvelopeFactory._strip_channel_prefix(identifier, target_channel)
+                    )
+
+                channel_ = registry.get_channel(target_channel)
                 await channel_.publish_chatwoot_message(payload, cw_account_id)
                 mark_span_ok(span)
             except Exception as e:
@@ -81,6 +122,34 @@ async def handle_chatwoot_payload(
 
         logger.debug(f"Chatwoot->{channel.capitalize()} webhook processed successfully")
         return None
+
+
+def _resolve_outgoing_channel(
+    identifier: Any, url_channel: str, registry: Any
+) -> str:
+    """Pick the channel from the identifier's prefix, else the URL channel."""
+    if isinstance(identifier, str):
+        for name in registry.channel_names:
+            if identifier.startswith(f"{name}_"):
+                return name
+    return url_channel
+
+
+def _resolve_outgoing_channel(
+    identifier: Any, url_channel: str, registry: Any
+) -> str:
+    """Pick the channel from the identifier's prefix, else the URL channel.
+
+    Inbound, the orchestrator prefixes every contact identifier with its
+    channel ("<channel>_<id>"). Outbound, Chatwoot account webhooks fire for
+    all channels regardless of the URL, so we trust the prefix to dispatch to
+    the right transport. Falls back to the URL channel for unprefixed ids.
+    """
+    if isinstance(identifier, str):
+        for name in registry.channel_names:
+            if identifier.startswith(f"{name}_"):
+                return name
+    return url_channel
 
 
 def _handle_exceptions(
